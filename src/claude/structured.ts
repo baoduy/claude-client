@@ -194,7 +194,7 @@ export class StructuredClaudeClient extends EventEmitter implements ITurnSession
 
     send(input: ClaudeSendInput, options?: ClaudeSendOptions): TurnHandle {
         const turnId = `turn-${++this.turnCounter}`;
-        const handle = new TurnHandle(this, turnId, normalizeSendInput(input), options?.metadata);
+        const handle = new TurnHandle(this, turnId, input, options?.metadata);
         this.turns.push(handle);
 
         if (this.activeTurn) {
@@ -631,20 +631,6 @@ export class StructuredClaudeClient extends EventEmitter implements ITurnSession
             }
         }
     }
-}
-
-function normalizeSendInput(input: ClaudeSendInput): ClaudeSendInput {
-    if (typeof input === 'string') {
-        return input;
-    }
-
-    if ('text' in input) {
-        return { text: input.text };
-    }
-
-    return {
-        content: input.content.map((block) => ({ ...block }))
-    };
 }
 
 function buildQuestionUpdatedInput(request: QuestionRequest, answers: QuestionAnswerInput): Record<string, any> {
