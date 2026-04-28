@@ -3,7 +3,7 @@ import { SystemMessage, Usage, AssistantMessage, UserMessage, ControlRequestMess
 import type { TaskStore } from './task-store.js';
 import type { TaskMessageQueue } from './task-queue.js';
 import type { StructuredClaudeClient } from './structured.js';
-export type ClaudePermissionMode = 'acceptEdits' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
+export type ClaudePermissionMode = 'acceptEdits' | 'auto' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
 export interface ClaudeClientConfig {
     /**
      * Working directory for the Claude CLI
@@ -65,6 +65,14 @@ export interface ClaudeClientConfig {
      * Optional session ID to use before system/init arrives
      */
     sessionId?: string;
+    /**
+     * Friendly session name for display / resume-by-name (passes -n / --name)
+     */
+    sessionName?: string;
+    /**
+     * Minimal mode that skips auto-discovery (passes --bare)
+     */
+    bare?: boolean;
     /**
      * Resume an existing session ID (passes --resume)
      */
@@ -138,9 +146,14 @@ export interface ClaudeClientConfig {
      */
     tools?: string[] | 'default';
     /**
-     * MCP server config (passes --mcp-config)
+     * MCP server config (passes --mcp-config as inline JSON)
      */
     mcpServers?: Record<string, any>;
+    /**
+     * Path to an MCP config file (passes --mcp-config <path>).
+     * Takes precedence over mcpServers when both are set.
+     */
+    mcpConfigPath?: string;
     /**
      * Enable deprecated MCP debug mode (passes --mcp-debug)
      */
@@ -184,7 +197,7 @@ export interface ClaudeClientConfig {
     /**
      * Effort level (passes --effort)
      */
-    effort?: 'low' | 'medium' | 'high';
+    effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
     /**
      * Resume a session linked to a PR (passes --from-pr [value])
      */
@@ -194,9 +207,22 @@ export interface ClaudeClientConfig {
      */
     systemPrompt?: string;
     /**
+     * Load system prompt from file (passes --system-prompt-file)
+     */
+    systemPromptFile?: string;
+    /**
      * Append system prompt (passes --append-system-prompt)
      */
     appendSystemPrompt?: string;
+    /**
+     * Append system prompt from file (passes --append-system-prompt-file)
+     */
+    appendSystemPromptFile?: string;
+    /**
+     * Move per-machine system-prompt sections into the first message
+     * so the prompt itself is cacheable (passes --exclude-dynamic-system-prompt-sections)
+     */
+    excludeDynamicSystemPromptSections?: boolean;
     /**
      * Custom agents JSON (passes --agents)
      */
@@ -213,6 +239,10 @@ export interface ClaudeClientConfig {
      * Re-emit user messages in stream-json mode (passes --replay-user-messages)
      */
     replayUserMessages?: boolean;
+    /**
+     * Emit hook lifecycle events on stdout (passes --include-hook-events)
+     */
+    includeHookEvents?: boolean;
     /**
      * Path or JSON string for settings (passes --settings)
      */
@@ -375,6 +405,12 @@ export declare class ClaudeClient extends EventEmitter {
      * Build command line arguments for print mode
      */
     private buildPrintModeArgs;
+    /**
+     * Build the CLI flags shared by stream mode and print mode.
+     * Mode-specific flags (output-format, input-format, -p, session-id resolution,
+     * the trailing prompt text) are added by the caller.
+     */
+    private buildCommonArgs;
     /**
      * Send a control response (permission decision, answer, etc.)
      */

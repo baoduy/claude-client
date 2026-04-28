@@ -327,17 +327,12 @@ The current live validation shows that multi-turn memory, `AskUserQuestion`, str
 ## Mode Comparison
 
 | Feature | Stream Mode | Print Mode |
-|---------|-------------|------------|
+| --- | --- | --- |
 | Process lifecycle | Persistent | Spawn per message |
 | Session persistence | In-memory | Disk-based via `--resume` |
 | Memory usage | Higher | Lower (process exits) |
 | Latency | Lower | Higher (spawn overhead) |
 | Best for | Long-running sessions | Short queries, serverless |
-
-## Projects Using This Client
-
-- [DisCode](https://github.com/raylin01/DisCode) - Discord bot for AI pair programming
-- [Squire](https://github.com/raylin01/squire) - AI assistant framework
 
 ## Troubleshooting
 
