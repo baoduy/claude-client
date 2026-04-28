@@ -1,51 +1,50 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ClaudeClient, StructuredClaudeClient } from '../../dist/esm/index.js';
+import { ClaudeClient } from '../../dist/esm/index.js';
 
-function createStructuredClient() {
-  const rawClient = new ClaudeClient({ cwd: process.cwd() });
+function createClient() {
+  const client = new ClaudeClient({ cwd: process.cwd() });
   const sentMessages = [];
   const controlResponses = [];
 
-  rawClient.sendMessage = async (text) => {
+  client.sendMessage = async (text) => {
     sentMessages.push({ type: 'text', text });
   };
 
-  rawClient.sendMessageWithContent = async (content) => {
+  client.sendMessageWithContent = async (content) => {
     sentMessages.push({ type: 'content', content });
   };
 
-  rawClient.sendControlResponse = async (requestId, responseData) => {
+  client.sendControlResponse = async (requestId, responseData) => {
     controlResponses.push({ requestId, responseData });
   };
 
-  rawClient.interrupt = async () => {};
-  rawClient.setPermissionMode = async () => {};
-  rawClient.setModel = async () => {};
-  rawClient.setMaxThinkingTokens = async () => {};
-  rawClient.listSupportedModels = async () => ({ models: [], defaultModel: null, raw: {} });
+  client.interrupt = async () => {};
+  client.setPermissionMode = async () => {};
+  client.setModel = async () => {};
+  client.setMaxThinkingTokens = async () => {};
+  client.listSupportedModels = async () => ({ models: [], defaultModel: null, raw: {} });
 
-  const client = StructuredClaudeClient.fromRawClient(rawClient);
-  return { rawClient, client, sentMessages, controlResponses };
+  return { client, sentMessages, controlResponses };
 }
 
-test('StructuredClaudeClient streams updates without polling', async () => {
-  const { rawClient, client, sentMessages } = createStructuredClient();
+test('ClaudeClient streams updates without polling', async () => {
+  const { client, sentMessages } = createClient();
 
   const turn = client.send('Hello Claude');
   assert.equal(sentMessages.length, 1);
   assert.deepEqual(sentMessages[0], { type: 'text', text: 'Hello Claude' });
 
-  rawClient.emit('stream_event', {
+  client.emit('stream_event', {
     type: 'stream_event',
     session_id: 'session-1',
     parent_tool_use_id: null,
     uuid: 'stream-1',
     event: { type: 'message_start', message: {} }
   });
-  rawClient.emit('text_accumulated', 'Hello');
-  rawClient.emit('thinking_accumulated', 'Thinking');
+  client.emit('text_accumulated', 'Hello');
+  client.emit('thinking_accumulated', 'Thinking');
 
   const snapshot = turn.current();
   assert.equal(snapshot.status, 'running');
@@ -53,7 +52,7 @@ test('StructuredClaudeClient streams updates without polling', async () => {
   assert.equal(snapshot.thinking, 'Thinking');
   assert.equal(snapshot.currentOutputKind, 'thinking');
 
-  rawClient.emit('result', {
+  client.emit('result', {
     type: 'result',
     subtype: 'success',
     is_error: false,
@@ -68,8 +67,8 @@ test('StructuredClaudeClient streams updates without polling', async () => {
   assert.equal(completed.result.result, 'Completed');
 });
 
-test('StructuredClaudeClient queues turns and starts the next after result', async () => {
-  const { rawClient, client, sentMessages } = createStructuredClient();
+test('ClaudeClient queues turns and starts the next after result', async () => {
+  const { client, sentMessages } = createClient();
 
   const first = client.send('First');
   const second = client.send('Second');
@@ -78,7 +77,7 @@ test('StructuredClaudeClient queues turns and starts the next after result', asy
   assert.equal(second.current().status, 'queued');
   assert.equal(sentMessages.length, 1);
 
-  rawClient.emit('result', {
+  client.emit('result', {
     type: 'result',
     subtype: 'success',
     is_error: false,
@@ -94,12 +93,12 @@ test('StructuredClaudeClient queues turns and starts the next after result', asy
   assert.equal(second.current().status, 'running');
 });
 
-test('StructuredClaudeClient exposes and resolves tool approval requests', async () => {
-  const { rawClient, client, controlResponses } = createStructuredClient();
+test('ClaudeClient exposes and resolves tool approval requests', async () => {
+  const { client, controlResponses } = createClient();
 
   const turn = client.send('Run a command');
 
-  rawClient.emit('control_request', {
+  client.emit('control_request', {
     type: 'control_request',
     request_id: 'sdk-req-1',
     request: {
@@ -127,12 +126,12 @@ test('StructuredClaudeClient exposes and resolves tool approval requests', async
   assert.equal(client.getOpenRequests().length, 0);
 });
 
-test('StructuredClaudeClient answers AskUserQuestion requests', async () => {
-  const { rawClient, client, controlResponses } = createStructuredClient();
+test('ClaudeClient answers AskUserQuestion requests', async () => {
+  const { client, controlResponses } = createClient();
 
   client.send('Ask me something');
 
-  rawClient.emit('control_request', {
+  client.emit('control_request', {
     type: 'control_request',
     request_id: 'sdk-question-1',
     request: {
@@ -177,10 +176,10 @@ test('StructuredClaudeClient answers AskUserQuestion requests', async () => {
   assert.equal(client.getOpenRequests().length, 0);
 });
 
-test('StructuredClaudeClient attaches to an existing waiting turn and answers questions', async () => {
-  const { rawClient, client, controlResponses } = createStructuredClient();
+test('ClaudeClient attaches to an existing waiting turn and answers questions', async () => {
+  const { client, controlResponses } = createClient();
 
-  rawClient.emit('control_request', {
+  client.emit('control_request', {
     type: 'control_request',
     request_id: 'sdk-question-remote',
     request: {
@@ -216,12 +215,12 @@ test('StructuredClaudeClient attaches to an existing waiting turn and answers qu
   assert.equal(client.getOpenRequests().length, 0);
 });
 
-test('StructuredClaudeClient supports incremental question sessions', async () => {
-  const { rawClient, client, controlResponses } = createStructuredClient();
+test('ClaudeClient supports incremental question sessions', async () => {
+  const { client, controlResponses } = createClient();
 
   client.send('Ask me something else');
 
-  rawClient.emit('control_request', {
+  client.emit('control_request', {
     type: 'control_request',
     request_id: 'sdk-question-2',
     request: {
@@ -272,14 +271,14 @@ test('StructuredClaudeClient supports incremental question sessions', async () =
   });
 });
 
-test('ClaudeClient.init returns a structured client instance', async () => {
+test('ClaudeClient.init returns a ClaudeClient instance', async () => {
   const originalStart = ClaudeClient.prototype.start;
   ClaudeClient.prototype.start = async function start() {};
 
   try {
     const client = await ClaudeClient.init({ cwd: process.cwd() });
-    assert.ok(client instanceof StructuredClaudeClient);
-    client.close();
+    assert.ok(client instanceof ClaudeClient);
+    client.kill();
   } finally {
     ClaudeClient.prototype.start = originalStart;
   }

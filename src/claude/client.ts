@@ -29,7 +29,6 @@ import {
 } from './types.js';
 import type { TaskStore } from './task-store.js';
 import type { TaskMessageQueue } from './task-queue.js';
-import type { StructuredClaudeClient } from './structured.js';
 import { ClaudeQuestionSession } from './question-session.js';
 import {
     buildQuestionPrompts,
@@ -473,11 +472,16 @@ export class ClaudeClient extends EventEmitter implements ITurnSession {
         if (config.printMode && config.printModeAutoSession !== false && !config.sessionId) {
             this._sessionId = randomUUID();
         }
+
+        // Wire up structured-client event handlers immediately so that
+        // control_request events are handled even before the first send().
+        this._scEnsureHandlers();
     }
 
-    static async init(config: ClaudeClientConfig): Promise<StructuredClaudeClient> {
-        const module = await import('./structured.js');
-        return module.StructuredClaudeClient.init(config);
+    static async init(config: ClaudeClientConfig): Promise<ClaudeClient> {
+        const client = new ClaudeClient(config);
+        await client.start();
+        return client;
     }
 
     private logDebug(message: string): void {
