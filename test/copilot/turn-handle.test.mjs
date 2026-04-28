@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CopilotTurnHandle } from '../dist/esm/copilot/turn-handle.js';
+import { CopilotTurnHandle } from '../../dist/esm/copilot/turn-handle.js';
 
 function seedSnapshot(turnId = 't1') {
   return {

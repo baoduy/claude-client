@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CopilotClient } from '../dist/esm/copilot/index.js';
+import { CopilotClient } from '../../dist/esm/copilot/index.js';
 
 class FakeGhClient {
   constructor(opts) { this.opts = opts; this.stopped = false; }

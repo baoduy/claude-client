@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CopilotTransport } from '../dist/esm/copilot/transport.js';
-import { CopilotFeatureUnsupportedError } from '../dist/esm/copilot/errors.js';
+import { CopilotTransport } from '../../dist/esm/copilot/transport.js';
+import { CopilotFeatureUnsupportedError } from '../../dist/esm/copilot/errors.js';
 
 // Minimal fake SDK conforming to our shim's expected surface
 class FakeGhClient {

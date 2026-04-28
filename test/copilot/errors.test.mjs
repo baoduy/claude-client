@@ -8,7 +8,7 @@ import {
   CopilotTurnError,
   CopilotInterruptedError,
   CopilotPermissionDeniedError,
-} from '../dist/esm/copilot/errors.js';
+} from '../../dist/esm/copilot/errors.js';
 
 test('every Copilot error subclass extends CopilotError and Error, with correct .name', () => {
   const cases = [
