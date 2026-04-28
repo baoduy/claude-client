@@ -8,7 +8,7 @@ import {
   attachMcpHandlers,
   escapeProjectPath,
   unescapeProjectPath
-} from '../dist/esm/index.js';
+} from '../../dist/esm/index.js';
 
 test('TaskMessageQueue enqueues and dequeues in order', async () => {
   const queue = new TaskMessageQueue();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'events';
 import { Writable, PassThrough } from 'stream';
 
-import { ClaudeClient } from '../dist/esm/index.js';
+import { ClaudeClient } from '../../dist/esm/index.js';
 
 // ============================================================================
 // Mock Helpers

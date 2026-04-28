@@ -8,7 +8,7 @@ import {
   escapeProjectPath,
   listClaudeSessionSummaries,
   readClaudeSessionRecord
-} from '../dist/esm/index.js';
+} from '../../dist/esm/index.js';
 
 test('session browser lists and reads Claude sessions from disk', async () => {
   const root = await mkdtemp(join(tmpdir(), 'claude-client-test-'));

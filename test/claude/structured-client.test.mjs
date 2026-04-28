@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { ClaudeClient, StructuredClaudeClient } from '../dist/esm/index.js';
+import { ClaudeClient, StructuredClaudeClient } from '../../dist/esm/index.js';
 
 function createStructuredClient() {
   const rawClient = new ClaudeClient({ cwd: process.cwd() });
