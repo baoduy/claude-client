@@ -2066,17 +2066,17 @@ git commit -m "test(copilot): integration smoke script"
 - [ ] **Step 1: Find all old import strings**
 
 ```bash
-grep -ln '@raylin01/claude-client' examples/
+grep -ln '@baoduy2412/claude-client' examples/
 ```
 
 Expected: all six files.
 
-- [ ] **Step 2: Replace `@raylin01/claude-client` with `@baoduy2412/ai-cli-client` in each**
+- [ ] **Step 2: Replace `@baoduy2412/claude-client` with `@baoduy2412/ai-cli-client` in each**
 
 For each file, replace exactly one line:
 
 ```ts
-import { ClaudeClient } from '@raylin01/claude-client';
+import { ClaudeClient } from '@baoduy2412/claude-client';
 ```
 
 with:
@@ -2272,10 +2272,10 @@ The full content for each section: paste/adapt the content from the spec at `doc
 
 - [ ] **Step 3: Verify all imports in the README's code blocks resolve to the published API**
 
-Read the README aloud (mentally). Every `from '@baoduy2412/ai-cli-client'` must be an export that exists; every `from '@baoduy2412/ai-cli-client/copilot'` must work. There should be **zero** `@raylin01/claude-client` references and **zero** `StructuredClaudeClient` references.
+Read the README aloud (mentally). Every `from '@baoduy2412/ai-cli-client'` must be an export that exists; every `from '@baoduy2412/ai-cli-client/copilot'` must work. There should be **zero** `@baoduy2412/claude-client` references and **zero** `StructuredClaudeClient` references.
 
 ```bash
-grep -c '@raylin01/claude-client' README.md
+grep -c '@baoduy2412/claude-client' README.md
 grep -c 'StructuredClaudeClient' README.md
 ```
 
@@ -2311,12 +2311,12 @@ The current `package.json` reports `0.3.3`. This release adds a new module + bre
 - New examples under `examples/copilot/`.
 
 ### Changed
-- **Package renamed from `@raylin01/claude-client` to `@baoduy2412/ai-cli-client`.**
+- **Package renamed from `@baoduy2412/claude-client` to `@baoduy2412/ai-cli-client`.**
 - Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@baoduy2412/ai-cli-client/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
 - `ClaudeClient.init()` now returns `ClaudeClient` (was `StructuredClaudeClient`). Existing callers using `await ClaudeClient.init(config)` keep working — the methods previously on `StructuredClaudeClient` (`send`, `getHistory`, `getOpenRequests`, `approveRequest`, etc.) are now on `ClaudeClient` directly.
 
 ### Removed
-- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace `import { StructuredClaudeClient } from '@raylin01/claude-client'` with `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` and use `ClaudeClient.init(config)` (signature unchanged).
+- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace `import { StructuredClaudeClient } from '@baoduy2412/claude-client'` with `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` and use `ClaudeClient.init(config)` (signature unchanged).
 - `src/claude/structured.ts` deleted.
 ```
 

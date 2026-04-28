@@ -1,6 +1,5 @@
 import { EventEmitter } from 'events';
-import { ClaudeClient, ClaudeClientConfig } from './client.js';
-import { AssistantMessage, PermissionScope, Suggestion, Usage } from './types.js';
+import { AssistantMessage, Suggestion, Usage } from './types.js';
 export type OutputKind = 'idle' | 'text' | 'thinking' | 'tool_use' | 'tool_result' | 'tool_approval' | 'question' | 'hook' | 'mcp' | 'complete' | 'error';
 export type TurnStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'error';
 export interface ClaudeSendContentBlock {
@@ -135,23 +134,21 @@ export interface ClaudeQuestionSessionSnapshot {
     currentIndex: number;
     answers: Record<string, QuestionAnswerValue>;
 }
-export declare class ClaudeQuestionSession {
-    private readonly client;
-    private readonly request;
-    private readonly answers;
-    private currentIndex;
-    constructor(client: StructuredClaudeClient, request: QuestionRequest);
-    get requestId(): string;
-    current(): ClaudeQuestionSessionSnapshot;
-    getCurrentQuestion(): QuestionPrompt | null;
-    getAnswers(): Record<string, QuestionAnswerValue>;
-    setAnswer(questionKey: string | number, answer: QuestionAnswerValue): this;
-    setCurrentAnswer(answer: QuestionAnswerValue): this;
-    next(): QuestionPrompt | null;
-    previous(): QuestionPrompt | null;
-    submit(): Promise<void>;
+/** Minimal interface for the session object TurnHandle needs. Breaks the circular dependency with StructuredClaudeClient. */
+export interface ITurnSession {
+    getOpenRequestsForTurn(turnId: string): OpenRequest[];
 }
-declare class TurnHandle extends EventEmitter {
+export declare function nowIso(): string;
+export declare function cloneQuestionPrompt(prompt: QuestionPrompt): QuestionPrompt;
+export declare function cloneOpenRequest(request: OpenRequest): OpenRequest;
+export declare function cloneSnapshot(snapshot: TurnSnapshot): TurnSnapshot;
+export declare function buildQuestionPrompts(input: any): QuestionPrompt[];
+export declare function getQuestionLookupKeys(question: QuestionPrompt): string[];
+export declare function resolveQuestionPrompt(questions: QuestionPrompt[], questionKey: string | number): {
+    index: number;
+    question: QuestionPrompt;
+};
+export declare class TurnHandle extends EventEmitter {
     private readonly session;
     private snapshot;
     private updateQueue;
@@ -159,7 +156,7 @@ declare class TurnHandle extends EventEmitter {
     readonly done: Promise<TurnSnapshot>;
     private resolveDone;
     private rejectDone;
-    constructor(session: StructuredClaudeClient, id: string, input: ClaudeSendInput, metadata?: Record<string, unknown>);
+    constructor(session: ITurnSession, id: string, input: ClaudeSendInput, metadata?: Record<string, unknown>);
     current(): TurnSnapshot;
     history(): TurnHistoryEntry[];
     getOpenRequests(): OpenRequest[];
@@ -180,51 +177,5 @@ declare class TurnHandle extends EventEmitter {
     fail(error: Error): void;
     private emitUpdate;
     private closeIterators;
-}
-export declare class StructuredClaudeClient extends EventEmitter {
-    private readonly rawClient;
-    private readonly turns;
-    private readonly pendingTurns;
-    private readonly openRequests;
-    private activeTurn;
-    private turnCounter;
-    constructor(rawClient: ClaudeClient);
-    static init(config: ClaudeClientConfig): Promise<StructuredClaudeClient>;
-    static fromRawClient(rawClient: ClaudeClient): StructuredClaudeClient;
-    get sessionId(): string | null;
-    get raw(): ClaudeClient;
-    send(input: ClaudeSendInput, options?: ClaudeSendOptions): TurnHandle;
-    getCurrentTurn(): TurnSnapshot | null;
-    getHistory(): TurnSnapshot[];
-    getOpenRequests(): OpenRequest[];
-    getOpenRequest(id: string): OpenRequest | null;
-    createQuestionSession(id: string): ClaudeQuestionSession;
-    approveRequest(id: string, decision?: {
-        message?: string;
-        updatedInput?: Record<string, any>;
-        updatedPermissions?: any[];
-        scope?: PermissionScope;
-        always?: boolean;
-    }): Promise<void>;
-    denyRequest(id: string, reason?: string): Promise<void>;
-    answerQuestion(id: string, answers: QuestionAnswerInput): Promise<void>;
-    interruptTurn(_turnId?: string): Promise<void>;
-    setPermissionMode(mode: 'acceptEdits' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan'): Promise<void>;
-    setModel(model: string): Promise<void>;
-    setMaxThinkingTokens(tokens: number): Promise<void>;
-    listSupportedModels(timeoutMs?: number): Promise<import("./types.js").ClaudeSupportedModelsResponse>;
-    close(): void;
-    getOpenRequestsForTurn(turnId: string): OpenRequest[];
-    private turnFromRemote;
-    private startTurn;
-    private drainPendingTurns;
-    private attachRawEventHandlers;
-    private handleStreamEvent;
-    private handleToolUse;
-    private handleToolResult;
-    private handleControlRequest;
-    private handleControlCancel;
-    private requireOpenRequest;
-    private resolveOpenRequest;
 }
 export {};

@@ -6,7 +6,7 @@
 
 ## 1. Goal
 
-Add a `CopilotClient` to `@baoduy2412/ai-cli-client` (renamed from `@raylin01/claude-client`) with similar — not identical — functionality to the existing `ClaudeClient`, by wrapping the official `@github/copilot-sdk`. In the same change, simplify `ClaudeClient` by collapsing the legacy `ClaudeClient` / `StructuredClaudeClient` two-layer split into a single class.
+Add a `CopilotClient` to `@baoduy2412/ai-cli-client` (renamed from `@baoduy2412/claude-client`) with similar — not identical — functionality to the existing `ClaudeClient`, by wrapping the official `@github/copilot-sdk`. In the same change, simplify `ClaudeClient` by collapsing the legacy `ClaudeClient` / `StructuredClaudeClient` two-layer split into a single class.
 
 The Phase 1 deliverable is two clients shaped similarly enough that Phase 2's unification is mostly type-merging rather than behavior-bridging.
 
@@ -283,7 +283,7 @@ State machine: `idle → running → idle` (success), `running → error` (termi
 
 - README rewrite split into "Claude" and "Copilot" sections, with a shared "Common API" intro that covers the events + `TurnHandle` shape both clients share.
 - New examples under `examples/copilot/`: `basic.ts`, `streaming.ts`, `permissions.ts`, `byok.ts`.
-- All `@raylin01/claude-client` import strings in `examples/` updated to `@baoduy2412/ai-cli-client`.
+- All `@baoduy2412/claude-client` import strings in `examples/` updated to `@baoduy2412/ai-cli-client`.
 - `package.json` `exports` updates (reflecting the §3.2 build path shift):
   - `"."` keeps pointing at `./dist/{esm,cjs,types}/index.{js,d.ts}` — the new top-level barrel re-exports both providers and the shared `TurnHandleBase`.
   - Add `"./claude"` → `./dist/{esm,cjs,types}/claude/index.{js,d.ts}`.

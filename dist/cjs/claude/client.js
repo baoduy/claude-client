@@ -1,46 +1,16 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClaudeClient = void 0;
-const child_process_1 = require("child_process");
+const transport_js_1 = require("./transport.js");
 const readline_1 = require("readline");
 const events_1 = require("events");
 const crypto_1 = require("crypto");
+const question_session_js_1 = require("./question-session.js");
+const turn_handle_js_1 = require("./turn-handle.js");
 class ClaudeClient extends events_1.EventEmitter {
     process = null;
     config;
+    transport = new transport_js_1.ClaudeTransport();
     readyEmitted = false;
     // Track current state
     _sessionId = null;
@@ -63,6 +33,13 @@ class ClaudeClient extends events_1.EventEmitter {
     _isProcessingMessage = false;
     // Print mode tracking
     _printModeFirstMessage = true;
+    // ── Structured-client state (ITurnSession) ─────────────────────────────
+    _scTurns = [];
+    _scPendingTurns = [];
+    _scOpenRequests = new Map();
+    _scActiveTurn = null;
+    _scTurnCounter = 0;
+    _scHandlersAttached = false;
     constructor(config) {
         super();
         this.config = config;
@@ -75,10 +52,14 @@ class ClaudeClient extends events_1.EventEmitter {
         if (config.printMode && config.printModeAutoSession !== false && !config.sessionId) {
             this._sessionId = (0, crypto_1.randomUUID)();
         }
+        // Wire up structured-client event handlers immediately so that
+        // control_request events are handled even before the first send().
+        this._scEnsureHandlers();
     }
     static async init(config) {
-        const module = await Promise.resolve().then(() => __importStar(require('./structured.js')));
-        return module.StructuredClaudeClient.init(config);
+        const client = new ClaudeClient(config);
+        await client.start();
+        return client;
     }
     logDebug(message) {
         if (!this.config.debug)
@@ -190,7 +171,9 @@ class ClaudeClient extends events_1.EventEmitter {
                     ? [...(this.config.executableArgs || []), claudePath, ...args]
                     : args;
                 this.logDebug(`Spawning: ${spawnBin} ${spawnArgs.join(' ')}`);
-                this.process = (0, child_process_1.spawn)(spawnBin, spawnArgs, {
+                this.process = this.transport.spawn({
+                    bin: spawnBin,
+                    args: spawnArgs,
                     cwd: this.config.cwd,
                     env: {
                         ...process.env,
@@ -201,8 +184,6 @@ class ClaudeClient extends events_1.EventEmitter {
                         ...(this.config.enableFileCheckpointing ? { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: 'true' } : {}),
                         CI: 'true',
                     },
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    windowsHide: true
                 });
                 if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
                     throw new Error('Failed to create process pipes');
@@ -283,7 +264,9 @@ class ClaudeClient extends events_1.EventEmitter {
                     ? [...(this.config.executableArgs || []), claudePath, ...args]
                     : args;
                 this.logDebug(`Print mode spawning: ${spawnBin} ${spawnArgs.join(' ')}`);
-                this.process = (0, child_process_1.spawn)(spawnBin, spawnArgs, {
+                this.process = this.transport.spawn({
+                    bin: spawnBin,
+                    args: spawnArgs,
                     cwd: this.config.cwd,
                     env: {
                         ...process.env,
@@ -292,8 +275,6 @@ class ClaudeClient extends events_1.EventEmitter {
                         ...(this.config.enableFileCheckpointing ? { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: 'true' } : {}),
                         CI: 'true',
                     },
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    windowsHide: true
                 });
                 if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
                     throw new Error('Failed to create process pipes');
@@ -1080,8 +1061,455 @@ class ClaudeClient extends events_1.EventEmitter {
         }
         this.emit('task_message', event);
     }
+    // ── ITurnSession / structured-client methods ──────────────────────────
+    /**
+     * Ensure the raw event handlers that drive TurnHandle state are attached.
+     * Called lazily on the first `send()` so that clients that never use the
+     * structured API don't pay the overhead.
+     */
+    _scEnsureHandlers() {
+        if (this._scHandlersAttached) {
+            return;
+        }
+        this._scHandlersAttached = true;
+        this.on('stream_event', (message) => {
+            const turn = this._scActiveTurn;
+            if (!turn) {
+                return;
+            }
+            this._scHandleStreamEvent(turn, message);
+        });
+        this.on('text_accumulated', (text) => {
+            this._scActiveTurn?.updateOutput('text', text);
+        });
+        this.on('thinking_accumulated', (thinking) => {
+            this._scActiveTurn?.updateOutput('thinking', thinking);
+        });
+        this.on('usage_update', (usage) => {
+            this._scActiveTurn?.updateUsage(usage);
+        });
+        this.on('tool_use_start', (tool) => {
+            this._scHandleToolUse(tool);
+        });
+        this.on('tool_result', (toolResult) => {
+            this._scHandleToolResult(toolResult);
+        });
+        this.on('message', (message) => {
+            this._scActiveTurn?.addAssistantMessage(message);
+        });
+        this.on('control_request', (message) => {
+            this._scHandleControlRequest(message);
+        });
+        this.on('control_cancel_request', (message) => {
+            this._scHandleControlCancel(message.request_id);
+        });
+        this.on('result', (message) => {
+            const turn = this._scActiveTurn;
+            if (!turn) {
+                return;
+            }
+            turn.setOpenRequests([]);
+            for (const [requestId, entry] of this._scOpenRequests.entries()) {
+                if (entry.request.turnId === turn.current().id) {
+                    this._scOpenRequests.delete(requestId);
+                }
+            }
+            turn.complete({
+                subtype: message.subtype,
+                isError: message.is_error,
+                result: message.result,
+                error: message.error,
+                durationMs: message.duration_ms,
+                durationApiMs: message.duration_api_ms,
+                numTurns: message.num_turns
+            });
+            this._scActiveTurn = null;
+            this._scDrainPendingTurns();
+        });
+        this.on('error', (error) => {
+            if (this._scActiveTurn) {
+                this._scActiveTurn.fail(error);
+                this._scActiveTurn = null;
+            }
+            this._scDrainPendingTurns();
+        });
+    }
+    /**
+     * Send a message and return a TurnHandle for tracking.
+     */
+    send(input, options) {
+        this._scEnsureHandlers();
+        const turnId = `turn-${++this._scTurnCounter}`;
+        const handle = new turn_handle_js_1.TurnHandle(this, turnId, input, options?.metadata);
+        this._scTurns.push(handle);
+        if (this._scActiveTurn) {
+            handle.markQueued();
+            this._scPendingTurns.push(handle);
+        }
+        else {
+            void this._scStartTurn(handle);
+        }
+        return handle;
+    }
+    /**
+     * Return a snapshot of the currently active turn, or null.
+     */
+    getCurrentTurn() {
+        return this._scActiveTurn ? this._scActiveTurn.current() : null;
+    }
+    /**
+     * Return snapshots for all completed/errored turns.
+     */
+    getHistory() {
+        return this._scTurns
+            .filter((turn) => {
+            const snapshot = turn.current();
+            return snapshot.status === 'completed' || snapshot.status === 'error';
+        })
+            .map((turn) => turn.current());
+    }
+    /**
+     * Return clones of all currently open requests.
+     */
+    getOpenRequests() {
+        return Array.from(this._scOpenRequests.values()).map((entry) => (0, turn_handle_js_1.cloneOpenRequest)(entry.request));
+    }
+    /**
+     * Return a clone of the open request with the given id, or undefined.
+     */
+    getOpenRequest(id) {
+        const entry = this._scOpenRequests.get(id);
+        return entry ? (0, turn_handle_js_1.cloneOpenRequest)(entry.request) : null;
+    }
+    /**
+     * Approve a tool-approval or hook request.
+     */
+    async approveRequest(id, decision) {
+        const entry = this._scRequireOpenRequest(id);
+        if (entry.request.kind !== 'tool_approval' && entry.request.kind !== 'hook') {
+            throw new Error(`Request ${id} cannot be approved with approveRequest.`);
+        }
+        const responseData = {
+            behavior: 'allow',
+            message: decision?.message,
+            updatedInput: decision?.updatedInput,
+            updatedPermissions: decision?.updatedPermissions,
+            scope: decision?.scope
+        };
+        if (entry.request.kind === 'tool_approval') {
+            responseData.toolUseID = entry.request.toolUseId;
+            if (responseData.updatedInput === undefined) {
+                responseData.updatedInput = { ...entry.request.input };
+            }
+            if (decision?.always && entry.request.suggestions.length > 0 && responseData.updatedPermissions === undefined) {
+                responseData.updatedPermissions = entry.request.suggestions.map((suggestion) => ({ ...suggestion }));
+                responseData.scope = responseData.scope || 'session';
+            }
+        }
+        else if (entry.request.kind === 'hook' && responseData.updatedInput === undefined) {
+            responseData.updatedInput = { ...entry.request.input };
+        }
+        await this.sendControlResponse(entry.sdkRequestId, responseData);
+        this._scResolveOpenRequest(id, 'resolved');
+    }
+    /**
+     * Deny a tool-approval or hook request.
+     */
+    async denyRequest(id, reason) {
+        const entry = this._scRequireOpenRequest(id);
+        if (entry.request.kind !== 'tool_approval' && entry.request.kind !== 'hook') {
+            throw new Error(`Request ${id} cannot be denied with denyRequest.`);
+        }
+        const responseData = {
+            behavior: 'deny',
+            message: reason || 'Denied by user.'
+        };
+        if (entry.request.kind === 'tool_approval') {
+            responseData.toolUseID = entry.request.toolUseId;
+        }
+        await this.sendControlResponse(entry.sdkRequestId, responseData);
+        this._scResolveOpenRequest(id, 'resolved');
+    }
+    /**
+     * Answer a question request.
+     */
+    async answerQuestion(id, answers) {
+        const entry = this._scRequireOpenRequest(id);
+        if (entry.request.kind !== 'question') {
+            throw new Error(`Request ${id} is not a question request.`);
+        }
+        const updatedInput = _scBuildQuestionUpdatedInput(entry.request, answers);
+        await this.sendControlResponse(entry.sdkRequestId, {
+            behavior: 'allow',
+            updatedInput
+        });
+        this._scResolveOpenRequest(id, 'resolved');
+    }
+    /**
+     * Create a question session helper for step-by-step navigation.
+     */
+    createQuestionSession(id) {
+        const entry = this._scRequireOpenRequest(id);
+        if (entry.request.kind !== 'question') {
+            throw new Error(`Request ${id} is not a question request.`);
+        }
+        return new question_session_js_1.ClaudeQuestionSession(this, entry.request);
+    }
+    /**
+     * Interrupt the current (or specified) turn.
+     */
+    async interruptTurn(_turnId) {
+        await this.interrupt();
+    }
+    /**
+     * ITurnSession contract: return open requests for a specific turn.
+     */
+    getOpenRequestsForTurn(turnId) {
+        return Array.from(this._scOpenRequests.values())
+            .filter((entry) => entry.request.turnId === turnId && entry.request.status === 'open')
+            .map((entry) => (0, turn_handle_js_1.cloneOpenRequest)(entry.request));
+    }
+    // ── Private helpers for structured-client methods ─────────────────────
+    _scTurnFromRemote(createIfMissing = false) {
+        if (this._scActiveTurn) {
+            return this._scActiveTurn;
+        }
+        if (!createIfMissing) {
+            return null;
+        }
+        const handle = new turn_handle_js_1.TurnHandle(this, `attached-${++this._scTurnCounter}`, { text: '' }, {
+            resumed: true,
+            synthetic: true
+        });
+        this._scTurns.push(handle);
+        this._scActiveTurn = handle;
+        handle.markStarted();
+        return handle;
+    }
+    async _scStartTurn(handle) {
+        this._scActiveTurn = handle;
+        handle.markStarted();
+        try {
+            const input = handle.current().input;
+            if (typeof input === 'string') {
+                await this.sendMessage(input);
+            }
+            else if ('text' in input) {
+                await this.sendMessage(input.text);
+            }
+            else {
+                await this.sendMessageWithContent(input.content);
+            }
+        }
+        catch (error) {
+            const err = error instanceof Error ? error : new Error(String(error));
+            handle.fail(err);
+            this._scActiveTurn = null;
+            this._scDrainPendingTurns();
+        }
+    }
+    _scDrainPendingTurns() {
+        if (this._scActiveTurn || this._scPendingTurns.length === 0) {
+            return;
+        }
+        const nextTurn = this._scPendingTurns.shift();
+        void this._scStartTurn(nextTurn);
+    }
+    _scHandleStreamEvent(turn, message) {
+        const event = message.event;
+        if (event.type === 'message_start') {
+            turn.updateStatus('running');
+            return;
+        }
+        if (event.type === 'content_block_start') {
+            if (event.content_block?.type === 'thinking') {
+                turn.updateOutput('thinking', turn.current().thinking);
+            }
+            else if (event.content_block?.type === 'text') {
+                turn.updateOutput('text', turn.current().text);
+            }
+            else if (event.content_block?.type === 'tool_use') {
+                turn.updateStatus('running');
+            }
+            return;
+        }
+        if (event.type === 'message_delta' && event.usage) {
+            turn.updateUsage(event.usage);
+        }
+    }
+    _scHandleToolUse(tool) {
+        this._scActiveTurn?.addToolUse({
+            id: tool.id,
+            name: tool.name,
+            input: { ...tool.input },
+            startedAt: (0, turn_handle_js_1.nowIso)()
+        });
+    }
+    _scHandleToolResult(toolResult) {
+        this._scActiveTurn?.addToolResult({
+            toolUseId: toolResult.toolUseId,
+            content: toolResult.content,
+            isError: toolResult.isError,
+            receivedAt: (0, turn_handle_js_1.nowIso)()
+        });
+    }
+    _scHandleControlRequest(message) {
+        const turn = this._scTurnFromRemote(true);
+        if (!turn) {
+            return;
+        }
+        const request = message.request;
+        const requestId = `${turn.current().id}-request-${this._scOpenRequests.size + 1}`;
+        let openRequest = null;
+        if (request.subtype === 'can_use_tool') {
+            if (request.tool_name === 'AskUserQuestion') {
+                const questions = (0, turn_handle_js_1.buildQuestionPrompts)(request.input);
+                openRequest = {
+                    id: requestId,
+                    kind: 'question',
+                    status: 'open',
+                    createdAt: (0, turn_handle_js_1.nowIso)(),
+                    turnId: turn.current().id,
+                    title: questions[0]?.header,
+                    prompt: questions.map((question) => question.prompt).join('\n\n'),
+                    questions,
+                    allowOther: true,
+                    multiSelect: questions.some((question) => question.multiSelect),
+                    currentQuestionIndex: 0
+                };
+            }
+            else {
+                openRequest = {
+                    id: requestId,
+                    kind: 'tool_approval',
+                    status: 'open',
+                    createdAt: (0, turn_handle_js_1.nowIso)(),
+                    turnId: turn.current().id,
+                    toolName: request.tool_name || 'unknown',
+                    toolUseId: request.tool_use_id,
+                    input: { ...(request.input || {}) },
+                    suggestions: (request.permission_suggestions || []).map((suggestion) => ({ ...suggestion })),
+                    blockedPath: request.blocked_path,
+                    decisionReason: request.decision_reason
+                };
+            }
+        }
+        else if (request.subtype === 'hook_callback') {
+            openRequest = {
+                id: requestId,
+                kind: 'hook',
+                status: 'open',
+                createdAt: (0, turn_handle_js_1.nowIso)(),
+                turnId: turn.current().id,
+                callbackId: request.callback_id,
+                toolUseId: request.tool_use_id,
+                input: { ...(request.input || {}) }
+            };
+        }
+        else if (request.subtype === 'mcp_message') {
+            openRequest = {
+                id: requestId,
+                kind: 'mcp',
+                status: 'open',
+                createdAt: (0, turn_handle_js_1.nowIso)(),
+                turnId: turn.current().id,
+                serverName: request.server_name,
+                message: request.message
+            };
+        }
+        if (!openRequest) {
+            return;
+        }
+        turn.updateStatus('waiting');
+        this._scOpenRequests.set(requestId, {
+            sdkRequestId: message.request_id,
+            request: openRequest
+        });
+        turn.setOpenRequests(this.getOpenRequestsForTurn(turn.current().id));
+        turn.openRequest(openRequest);
+    }
+    _scHandleControlCancel(sdkRequestId) {
+        for (const [requestId, entry] of this._scOpenRequests.entries()) {
+            if (entry.sdkRequestId !== sdkRequestId) {
+                continue;
+            }
+            entry.request.status = 'canceled';
+            const turn = this._scTurns.find((candidate) => candidate.current().id === entry.request.turnId);
+            this._scOpenRequests.delete(requestId);
+            if (turn) {
+                turn.setOpenRequests(this.getOpenRequestsForTurn(entry.request.turnId));
+                turn.closeRequest(entry.request);
+                if (turn === this._scActiveTurn) {
+                    turn.updateStatus('running');
+                }
+            }
+            break;
+        }
+    }
+    _scRequireOpenRequest(id) {
+        const entry = this._scOpenRequests.get(id);
+        if (!entry) {
+            throw new Error(`Open request ${id} was not found.`);
+        }
+        return entry;
+    }
+    _scResolveOpenRequest(id, status) {
+        const entry = this._scOpenRequests.get(id);
+        if (!entry) {
+            return;
+        }
+        entry.request.status = status;
+        const turn = this._scTurns.find((candidate) => candidate.current().id === entry.request.turnId);
+        this._scOpenRequests.delete(id);
+        if (turn) {
+            turn.setOpenRequests(this.getOpenRequestsForTurn(entry.request.turnId));
+            turn.closeRequest(entry.request);
+            if (turn === this._scActiveTurn) {
+                turn.updateStatus('running');
+            }
+        }
+    }
 }
 exports.ClaudeClient = ClaudeClient;
+// ── File-level helpers for structured-client question logic ───────────────
+function _scBuildQuestionUpdatedInput(request, answers) {
+    const normalizedAnswers = _scNormalizeQuestionAnswers(request, answers);
+    const answersObject = {};
+    request.questions.forEach((question, index) => {
+        const key = question.header || question.prompt || `Question ${index + 1}`;
+        answersObject[key] = normalizedAnswers[index];
+    });
+    const questionSummary = request.questions.length === 1
+        ? request.questions[0].prompt
+        : request.questions.map((question) => question.header || question.prompt).join(', ');
+    return {
+        question: questionSummary,
+        answers: answersObject
+    };
+}
+function _scNormalizeQuestionAnswers(request, answers) {
+    if (Array.isArray(answers)) {
+        return answers.map((answer) => _scNormalizeQuestionAnswerValue(answer));
+    }
+    if (typeof answers === 'string') {
+        return [answers];
+    }
+    const mappedAnswers = [];
+    for (const question of request.questions) {
+        const matchingKey = (0, turn_handle_js_1.getQuestionLookupKeys)(question).find((key) => answers[key] !== undefined);
+        mappedAnswers.push(_scNormalizeQuestionAnswerValue(matchingKey ? answers[matchingKey] : undefined));
+    }
+    return mappedAnswers;
+}
+function _scNormalizeQuestionAnswerValue(value) {
+    if (Array.isArray(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        return value;
+    }
+    return '';
+}
 const RELATED_TASK_KEY = 'io.modelcontextprotocol/related-task';
 function extractRelatedTaskId(payload, maxDepth) {
     if (!payload || typeof payload !== 'object')

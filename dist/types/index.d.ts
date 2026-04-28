@@ -1,7 +1,6 @@
-export * from './types.js';
-export * from './client.js';
-export * from './structured.js';
-export * from './sessions.js';
-export * from './mcp.js';
-export * from './task-store.js';
-export * from './task-queue.js';
+export * as claude from './claude/index.js';
+export * as copilot from './copilot/index.js';
+export * from './claude/index.js';
+export * from './turn-handle.js';
+export { ClaudeClient } from './claude/index.js';
+export { CopilotClient } from './copilot/index.js';

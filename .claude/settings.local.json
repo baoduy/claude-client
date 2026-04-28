@@ -5,7 +5,15 @@
       "Bash(rtk grep *)",
       "Bash(rtk npm *)",
       "Bash(npm test *)",
-      "WebFetch(domain:docs.github.com)"
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(rtk git *)",
+      "Bash(rtk read *)",
+      "Bash(grep -v '^commit\\\\|^Author\\\\|^Date\\\\|^$\\\\|refactor:')",
+      "Bash(git *)",
+      "Bash(rtk wc *)",
+      "Bash(rtk tsc *)",
+      "Bash(rtk find *)"
     ]
   }
 }

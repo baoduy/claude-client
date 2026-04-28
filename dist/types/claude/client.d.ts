@@ -1,8 +1,10 @@
 import { EventEmitter } from 'events';
-import { SystemMessage, Usage, AssistantMessage, UserMessage, ControlRequestMessage, ResultMessage, StreamEventMessage, ControlResponseData, ControlCancelRequestMessage, McpMessageEvent, HookCallbackEvent, ControlResponseEnvelope, TaskMessageEvent, ClaudeSupportedModelsResponse } from './types.js';
+import { SystemMessage, Usage, AssistantMessage, UserMessage, ControlRequestMessage, ResultMessage, StreamEventMessage, ControlResponseData, ControlCancelRequestMessage, McpMessageEvent, HookCallbackEvent, ControlResponseEnvelope, TaskMessageEvent, ClaudeSupportedModelsResponse, PermissionScope } from './types.js';
 import type { TaskStore } from './task-store.js';
 import type { TaskMessageQueue } from './task-queue.js';
-import type { StructuredClaudeClient } from './structured.js';
+import { ClaudeQuestionSession } from './question-session.js';
+import { ITurnSession, TurnHandle } from './turn-handle.js';
+import type { ClaudeSendInput, ClaudeSendOptions, OpenRequest, QuestionAnswerInput, TurnSnapshot } from './turn-handle.js';
 export type ClaudePermissionMode = 'acceptEdits' | 'auto' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
 export interface ClaudeClientConfig {
     /**
@@ -344,9 +346,10 @@ export interface PendingAction {
     question?: string;
     options?: string[];
 }
-export declare class ClaudeClient extends EventEmitter {
+export declare class ClaudeClient extends EventEmitter implements ITurnSession {
     private process;
     private config;
+    private readonly transport;
     private readyEmitted;
     private _sessionId;
     private _lastSystemModel;
@@ -363,8 +366,14 @@ export declare class ClaudeClient extends EventEmitter {
     private _messageQueue;
     private _isProcessingMessage;
     private _printModeFirstMessage;
+    private readonly _scTurns;
+    private readonly _scPendingTurns;
+    private readonly _scOpenRequests;
+    private _scActiveTurn;
+    private _scTurnCounter;
+    private _scHandlersAttached;
     constructor(config: ClaudeClientConfig);
-    static init(config: ClaudeClientConfig): Promise<StructuredClaudeClient>;
+    static init(config: ClaudeClientConfig): Promise<ClaudeClient>;
     private logDebug;
     get sessionId(): string | null;
     /**
@@ -472,4 +481,70 @@ export declare class ClaudeClient extends EventEmitter {
     private handleToolResults;
     private normalizeSupportedModels;
     private handleTaskMessage;
+    /**
+     * Ensure the raw event handlers that drive TurnHandle state are attached.
+     * Called lazily on the first `send()` so that clients that never use the
+     * structured API don't pay the overhead.
+     */
+    private _scEnsureHandlers;
+    /**
+     * Send a message and return a TurnHandle for tracking.
+     */
+    send(input: ClaudeSendInput, options?: ClaudeSendOptions): TurnHandle;
+    /**
+     * Return a snapshot of the currently active turn, or null.
+     */
+    getCurrentTurn(): TurnSnapshot | null;
+    /**
+     * Return snapshots for all completed/errored turns.
+     */
+    getHistory(): TurnSnapshot[];
+    /**
+     * Return clones of all currently open requests.
+     */
+    getOpenRequests(): OpenRequest[];
+    /**
+     * Return a clone of the open request with the given id, or undefined.
+     */
+    getOpenRequest(id: string): OpenRequest | null;
+    /**
+     * Approve a tool-approval or hook request.
+     */
+    approveRequest(id: string, decision?: {
+        message?: string;
+        updatedInput?: Record<string, any>;
+        updatedPermissions?: any[];
+        scope?: PermissionScope;
+        always?: boolean;
+    }): Promise<void>;
+    /**
+     * Deny a tool-approval or hook request.
+     */
+    denyRequest(id: string, reason?: string): Promise<void>;
+    /**
+     * Answer a question request.
+     */
+    answerQuestion(id: string, answers: QuestionAnswerInput): Promise<void>;
+    /**
+     * Create a question session helper for step-by-step navigation.
+     */
+    createQuestionSession(id: string): ClaudeQuestionSession;
+    /**
+     * Interrupt the current (or specified) turn.
+     */
+    interruptTurn(_turnId?: string): Promise<void>;
+    /**
+     * ITurnSession contract: return open requests for a specific turn.
+     */
+    getOpenRequestsForTurn(turnId: string): OpenRequest[];
+    private _scTurnFromRemote;
+    private _scStartTurn;
+    private _scDrainPendingTurns;
+    private _scHandleStreamEvent;
+    private _scHandleToolUse;
+    private _scHandleToolResult;
+    private _scHandleControlRequest;
+    private _scHandleControlCancel;
+    private _scRequireOpenRequest;
+    private _scResolveOpenRequest;
 }
