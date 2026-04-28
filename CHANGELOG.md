@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.4.0 — 2026-04-28
+
+### Added
+- `CopilotClient` (`@baoduy2412/ai-cli-client/copilot`) — wraps `@github/copilot-sdk` with a surface that mirrors `ClaudeClient`. Supports streaming events, multi-turn sessions (auto-managed or caller-supplied), permission DSL (allow/deny tool patterns), BYOK (Anthropic/OpenAI/Azure keys), and disk-backed session browsing.
+- Top-level barrel: `import { ClaudeClient, CopilotClient } from '@baoduy2412/ai-cli-client'` works directly.
+- New `./copilot` subpath in `package.json` `exports`.
+- New examples under `examples/copilot/`: `basic.ts`, `streaming.ts`, `permissions.ts`, `byok.ts`.
+- Shared `TurnHandleBase<TSnapshot, TUpdate>` interface at the top of `src/`.
+- `npm run integration:copilot` smoke script.
+
+### Changed
+- **Package renamed to `@baoduy2412/ai-cli-client`.**
+- Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@baoduy2412/ai-cli-client/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
+- `ClaudeClient.init()` now returns `ClaudeClient` (was `StructuredClaudeClient`). Existing callers using `await ClaudeClient.init(config)` keep working — the methods previously on `StructuredClaudeClient` (`send`, `getHistory`, `getOpenRequests`, `approveRequest`, `answerQuestion`, etc.) are now on `ClaudeClient` directly.
+
+### Removed
+- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace any `import { StructuredClaudeClient } from '@<old>'` with `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` and use `ClaudeClient.init(config)` (signature unchanged).
+- `src/claude/structured.ts` deleted.
+
+### Known Limitations
+- `@github/copilot-sdk` is in public preview. The following `CopilotClientConfig` fields are not yet honored by the SDK and throw `CopilotFeatureUnsupportedError` at `start()`: `mode`, `maxAutopilotContinues`, `availableTools`, `excludedTools`, `allowAllTools`, `allowAllPaths`, `allowAllUrls`, `noAskUser`, `sessionName`. These will light up automatically as the SDK adds passthrough support.
+
 ## 0.3.3
 
 - Added synthetic attached-turn handling so structured Claude clients can take over resumed waiting `control_request` prompts.
