@@ -83,6 +83,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test test/**/*.test.mjs",
     "test:coverage": "npm run build && node --test --experimental-test-coverage test/**/*.test.mjs",
+    "integration:copilot": "npm run build && node ./scripts/integration-copilot-smoke.mjs",
     "integration:worktree": "npm run build && node ./scripts/integration-worktree-smoke.mjs",
     "integration:tmux": "npm run build && node ./scripts/integration-tmux-smoke.mjs",
     "integration:structured": "npm run build && node ./scripts/integration-structured-smoke.mjs",
