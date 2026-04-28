@@ -5,7 +5,7 @@
  * across multiple client instances.
  */
 
-import { ClaudeClient } from '@raylin01/claude-client';
+import { ClaudeClient } from '@baoduy2412/ai-cli-client';
 
 // Custom session ID - could be stored in a database for later resumption
 const SESSION_ID = 'my-project-session-abc123';

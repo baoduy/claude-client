@@ -7,7 +7,7 @@
  * Best for: Short queries, serverless environments, lower memory usage
  */
 
-import { ClaudeClient } from '@raylin01/claude-client';
+import { ClaudeClient } from '@baoduy2412/ai-cli-client';
 
 const client = new ClaudeClient({
   cwd: process.cwd(),
