@@ -38,6 +38,11 @@
       "types": "./dist/types/claude/task-queue.d.ts",
       "import": "./dist/esm/claude/task-queue.js",
       "require": "./dist/cjs/claude/task-queue.js"
+    },
+    "./copilot": {
+      "types": "./dist/types/copilot/index.d.ts",
+      "import": "./dist/esm/copilot/index.js",
+      "require": "./dist/cjs/copilot/index.js"
     }
   },
   "files": [
