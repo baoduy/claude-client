@@ -15,29 +15,29 @@
       "require": "./dist/cjs/index.js"
     },
     "./claude": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
+      "types": "./dist/types/claude/index.d.ts",
+      "import": "./dist/esm/claude/index.js",
+      "require": "./dist/cjs/claude/index.js"
     },
-    "./claude/sessions": {
-      "types": "./dist/types/sessions.d.ts",
-      "import": "./dist/esm/sessions.js",
-      "require": "./dist/cjs/sessions.js"
+    "./sessions": {
+      "types": "./dist/types/claude/sessions.d.ts",
+      "import": "./dist/esm/claude/sessions.js",
+      "require": "./dist/cjs/claude/sessions.js"
     },
-    "./claude/mcp": {
-      "types": "./dist/types/mcp.d.ts",
-      "import": "./dist/esm/mcp.js",
-      "require": "./dist/cjs/mcp.js"
+    "./mcp": {
+      "types": "./dist/types/claude/mcp.d.ts",
+      "import": "./dist/esm/claude/mcp.js",
+      "require": "./dist/cjs/claude/mcp.js"
     },
-    "./claude/task-store": {
-      "types": "./dist/types/task-store.d.ts",
-      "import": "./dist/esm/task-store.js",
-      "require": "./dist/cjs/task-store.js"
+    "./task-store": {
+      "types": "./dist/types/claude/task-store.d.ts",
+      "import": "./dist/esm/claude/task-store.js",
+      "require": "./dist/cjs/claude/task-store.js"
     },
-    "./claude/task-queue": {
-      "types": "./dist/types/task-queue.d.ts",
-      "import": "./dist/esm/task-queue.js",
-      "require": "./dist/cjs/task-queue.js"
+    "./task-queue": {
+      "types": "./dist/types/claude/task-queue.d.ts",
+      "import": "./dist/esm/claude/task-queue.js",
+      "require": "./dist/cjs/claude/task-queue.js"
     }
   },
   "files": [
@@ -48,20 +48,21 @@
     "examples"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/raylin01/claude-client.git"
+    "url": "git+https://github.com/baoduy2412/claude-client.git"
   },
   "bugs": {
-    "url": "https://github.com/raylin01/claude-client/issues"
+    "url": "https://github.com/baoduy2412/claude-client/issues"
   },
-  "homepage": "https://github.com/raylin01/claude-client#readme",
+  "homepage": "https://github.com/baoduy2412/claude-client#readme",
   "publishConfig": {
     "access": "public"
   },
   "keywords": [
+    "copilot",
     "claude",
     "anthropic",
     "ai",
@@ -85,7 +86,7 @@
     "prepack": "npm run build"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "25.6.0",
+    "typescript": "6.0.3"
   }
 }
