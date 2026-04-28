@@ -1,5 +1,6 @@
 
 import { spawn, ChildProcess } from 'child_process';
+import { ClaudeTransport } from './transport.js';
 import { createInterface } from 'readline';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
@@ -382,6 +383,7 @@ export interface PendingAction {
 export class ClaudeClient extends EventEmitter {
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
+    private readonly transport = new ClaudeTransport();
     private readyEmitted = false;
 
     // Track current state
@@ -559,7 +561,9 @@ export class ClaudeClient extends EventEmitter {
 
                 this.logDebug(`Spawning: ${spawnBin} ${spawnArgs.join(' ')}`);
 
-                this.process = spawn(spawnBin, spawnArgs, {
+                this.process = this.transport.spawn({
+                    bin: spawnBin,
+                    args: spawnArgs,
                     cwd: this.config.cwd,
                     env: {
                         ...process.env,
@@ -568,10 +572,8 @@ export class ClaudeClient extends EventEmitter {
                         // But use the entrypoint from legacy code which seems critical
                         CLAUDE_CODE_ENTRYPOINT: 'sdk-ts',
                         ...(this.config.enableFileCheckpointing ? { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: 'true' } : {}),
-                        CI: 'true', 
+                        CI: 'true',
                     },
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    windowsHide: true
                 });
 
                 if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
@@ -670,7 +672,9 @@ export class ClaudeClient extends EventEmitter {
 
                 this.logDebug(`Print mode spawning: ${spawnBin} ${spawnArgs.join(' ')}`);
 
-                this.process = spawn(spawnBin, spawnArgs, {
+                this.process = this.transport.spawn({
+                    bin: spawnBin,
+                    args: spawnArgs,
                     cwd: this.config.cwd,
                     env: {
                         ...process.env,
@@ -679,8 +683,6 @@ export class ClaudeClient extends EventEmitter {
                         ...(this.config.enableFileCheckpointing ? { CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: 'true' } : {}),
                         CI: 'true',
                     },
-                    stdio: ['pipe', 'pipe', 'pipe'],
-                    windowsHide: true
                 });
 
                 if (!this.process.stdin || !this.process.stdout || !this.process.stderr) {
