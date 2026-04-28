@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { CopilotTransport } from './transport.js';
 import { GhCopilotClient } from './sdk.js';
 import { CopilotTurnHandle } from './turn-handle.js';
-import { CopilotTurnError } from './errors.js';
+import { CopilotTurnError, CopilotInterruptedError } from './errors.js';
 import type {
   CopilotClientConfig,
   CopilotStatus,
@@ -152,11 +152,14 @@ export class CopilotClient extends EventEmitter {
       this.emit('result', finalSnapshot);
       this._history.push(finalSnapshot);
     } catch (err: any) {
-      const wrapped = err instanceof Error
-        ? new CopilotTurnError(err.message)
-        : new CopilotTurnError(String(err));
-      handle.fail(wrapped);
-      this.emit('error', wrapped);
+      // If handle was already terminated (e.g., via interrupt()), skip re-failing and re-emitting.
+      if (handle.current().status !== 'error') {
+        const wrapped = err instanceof Error
+          ? new CopilotTurnError(err.message)
+          : new CopilotTurnError(String(err));
+        handle.fail(wrapped);
+        this.emit('error', wrapped);
+      }
       this._history.push(handle.current());
     } finally {
       if (typeof unsubscribe === 'function') unsubscribe();
@@ -218,5 +221,15 @@ export class CopilotClient extends EventEmitter {
     }
   }
 
-  // interrupt() arrives in Task C8.
+  async interrupt(): Promise<void> {
+    const turn = this._currentTurn;
+    if (!turn) return;
+    const session = (this.transport as any).session;
+    try {
+      if (typeof session?.abort === 'function') await session.abort();
+    } catch {
+      // swallow — the rejection below covers it
+    }
+    turn.fail(new CopilotInterruptedError());
+  }
 }

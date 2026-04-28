@@ -107,3 +107,31 @@ test('CopilotClient emits client-level events that mirror SDK events', async () 
   assert.equal(captured.filter(([n]) => n === 'result').length, 1);
   await client.close();
 });
+
+// ── interrupt() tests ─────────────────────────────────────────────────────────
+
+import { CopilotInterruptedError } from '../../dist/esm/copilot/index.js';
+
+class HangingFakeGhSession {
+  on() { return () => {}; }
+  async sendAndWait() {
+    return new Promise((_resolve, reject) => { this._reject = reject; /* never resolves */ });
+  }
+  async abort() { this._reject?.(new Error('cancelled by client')); }
+}
+class HangingFakeGhClient {
+  async createSession() { this.session = new HangingFakeGhSession(); return this.session; }
+  async stop() {}
+}
+
+test('CopilotClient.interrupt rejects the in-flight turn with CopilotInterruptedError', async () => {
+  const client = new CopilotClient({ cwd: process.cwd() }, { GhClientCtor: function () { return new HangingFakeGhClient(); } });
+  await client.start();
+  const turn = client.send('hang');
+  // Give send() a tick to subscribe and start awaiting
+  await new Promise(r => setTimeout(r, 5));
+  await client.interrupt();
+  await assert.rejects(turn.done, CopilotInterruptedError);
+  assert.equal(client.getStatus(), 'error');
+  await client.close();
+});
