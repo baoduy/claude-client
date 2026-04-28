@@ -1,5 +1,5 @@
 
-import { spawn, ChildProcess } from 'child_process';
+import { ChildProcess } from 'child_process';
 import { ClaudeTransport } from './transport.js';
 import { createInterface } from 'readline';
 import { EventEmitter } from 'events';
