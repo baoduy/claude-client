@@ -88,77 +88,8 @@ interface InternalMcpRequest extends InternalBaseRequest {
 
 type InternalOpenRequest = InternalQuestionRequest | InternalToolRequest | InternalHookRequest | InternalMcpRequest;
 
-export class ClaudeQuestionSession {
-    private readonly request: QuestionRequest;
-    private readonly answers = new Map<string, QuestionAnswerValue>();
-    private currentIndex: number;
-
-    constructor(private readonly client: StructuredClaudeClient, request: QuestionRequest) {
-        this.request = cloneOpenRequest(request) as QuestionRequest;
-        this.currentIndex = Math.min(Math.max(request.currentQuestionIndex || 0, 0), Math.max(this.request.questions.length - 1, 0));
-    }
-
-    get requestId(): string {
-        return this.request.id;
-    }
-
-    current(): ClaudeQuestionSessionSnapshot {
-        return {
-            requestId: this.request.id,
-            request: cloneOpenRequest(this.request) as QuestionRequest,
-            currentIndex: this.currentIndex,
-            answers: this.getAnswers()
-        };
-    }
-
-    getCurrentQuestion(): QuestionPrompt | null {
-        return this.request.questions[this.currentIndex] ? cloneQuestionPrompt(this.request.questions[this.currentIndex]) : null;
-    }
-
-    getAnswers(): Record<string, QuestionAnswerValue> {
-        const values: Record<string, QuestionAnswerValue> = {};
-        for (const question of this.request.questions) {
-            const answer = this.answers.get(question.id);
-            if (answer !== undefined) {
-                values[question.id] = Array.isArray(answer) ? [...answer] : answer;
-            }
-        }
-        return values;
-    }
-
-    setAnswer(questionKey: string | number, answer: QuestionAnswerValue): this {
-        const { question } = resolveQuestionPrompt(this.request.questions, questionKey);
-        this.answers.set(question.id, Array.isArray(answer) ? [...answer] : answer);
-        return this;
-    }
-
-    setCurrentAnswer(answer: QuestionAnswerValue): this {
-        const question = this.getCurrentQuestion();
-        if (!question) {
-            throw new Error('No current question available.');
-        }
-
-        return this.setAnswer(question.id, answer);
-    }
-
-    next(): QuestionPrompt | null {
-        if (this.currentIndex < this.request.questions.length - 1) {
-            this.currentIndex += 1;
-        }
-        return this.getCurrentQuestion();
-    }
-
-    previous(): QuestionPrompt | null {
-        if (this.currentIndex > 0) {
-            this.currentIndex -= 1;
-        }
-        return this.getCurrentQuestion();
-    }
-
-    async submit(): Promise<void> {
-        await this.client.answerQuestion(this.request.id, this.getAnswers());
-    }
-}
+import { ClaudeQuestionSession } from './question-session.js';
+export { ClaudeQuestionSession };
 
 export class StructuredClaudeClient extends EventEmitter implements ITurnSession {
     private readonly rawClient: ClaudeClient;

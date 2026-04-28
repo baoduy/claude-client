@@ -30,6 +30,7 @@ import {
 import type { TaskStore } from './task-store.js';
 import type { TaskMessageQueue } from './task-queue.js';
 import type { StructuredClaudeClient } from './structured.js';
+import { ClaudeQuestionSession } from './question-session.js';
 import {
     buildQuestionPrompts,
     cloneOpenRequest,
@@ -49,7 +50,6 @@ import type {
     QuestionPrompt,
     QuestionRequest,
     ToolApprovalRequest,
-    TurnHistoryEntry,
     TurnSnapshot
 } from './turn-handle.js';
 
@@ -1713,13 +1713,13 @@ export class ClaudeClient extends EventEmitter implements ITurnSession {
     /**
      * Return snapshots for all completed/errored turns.
      */
-    getHistory(): TurnHistoryEntry[] {
+    getHistory(): TurnSnapshot[] {
         return this._scTurns
             .filter((turn) => {
                 const snapshot = turn.current();
                 return snapshot.status === 'completed' || snapshot.status === 'error';
             })
-            .map((turn) => turn.current()) as unknown as TurnHistoryEntry[];
+            .map((turn) => turn.current());
     }
 
     /**
@@ -1732,9 +1732,9 @@ export class ClaudeClient extends EventEmitter implements ITurnSession {
     /**
      * Return a clone of the open request with the given id, or undefined.
      */
-    getOpenRequest(id: string): OpenRequest | undefined {
+    getOpenRequest(id: string): OpenRequest | null {
         const entry = this._scOpenRequests.get(id);
-        return entry ? cloneOpenRequest(entry.request) : undefined;
+        return entry ? cloneOpenRequest(entry.request) : null;
     }
 
     /**
@@ -1822,16 +1822,11 @@ export class ClaudeClient extends EventEmitter implements ITurnSession {
     /**
      * Create a question session helper for step-by-step navigation.
      */
-    createQuestionSession(id: string): import('./structured.js').ClaudeQuestionSession {
+    createQuestionSession(id: string): ClaudeQuestionSession {
         const entry = this._scRequireOpenRequest(id);
         if (entry.request.kind !== 'question') {
             throw new Error(`Request ${id} is not a question request.`);
         }
-
-        // ClaudeQuestionSession still lives in structured.ts until Task A4.
-        // We import it synchronously via a dynamic type cast so we don't need
-        // a static import that would create a circular dep at runtime.
-        const { ClaudeQuestionSession } = require('./structured.js');
         return new ClaudeQuestionSession(this, entry.request);
     }
 
