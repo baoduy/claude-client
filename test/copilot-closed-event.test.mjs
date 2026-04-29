@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CopilotClient } from '../dist/esm/copilot/client.js';
 
-class StubGhClient {
+class StubGhSession {
   on() { return () => {}; }
   async sendAndWait() { return { content: '' }; }
-  async close() {}
+}
+
+class StubGhClient {
+  async createSession() { this.session = new StubGhSession(); return this.session; }
+  async stop() {}
 }
 
 test('CopilotClient emits closed when close() is called', async () => {
