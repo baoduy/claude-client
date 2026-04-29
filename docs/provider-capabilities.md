@@ -124,5 +124,5 @@ Anything not mapped above is reachable via `extraArgs`. See
   shared minimal snapshot type vs generic `AICliClient<H>`.
 - **Event normalization.** Possibly add a thin "common events" layer in a
   future phase if a real consumer needs cross-provider event handling.
-- **PTY transport (Phase 3).** Forward-compat hooks already in place; will
-  add an opt-in `transport: 'pty'` mode for Electron/xterm.js embedding.
+- **PTY transport.** Shipped in 0.6.0 via `createPtyClient` — see the PTY
+  transport section above and [`pty-transport.md`](./pty-transport.md).

@@ -55,6 +55,8 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
+    "docs/provider-capabilities.md",
+    "docs/pty-transport.md",
     "examples"
   ],
   "engines": {
