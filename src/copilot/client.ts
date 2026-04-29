@@ -12,6 +12,7 @@ import type {
   CopilotTurnUpdate,
   CopilotUsage,
 } from './types.js';
+import type { AICliClient } from '../ai-cli-client.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -30,7 +31,9 @@ export declare interface CopilotClient {
   on(event: 'error',           listener: (err: Error) => void): this;
 }
 
-export class CopilotClient extends EventEmitter {
+export class CopilotClient extends EventEmitter implements AICliClient {
+  readonly provider = 'copilot' as const;
+
   private readonly config: CopilotClientConfig;
   private readonly transport: CopilotTransport;
 
