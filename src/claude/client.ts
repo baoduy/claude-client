@@ -39,7 +39,7 @@ import {
     TurnHandle
 } from './turn-handle.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities } from '../unified/index.js';
+import type { AICliCapabilities, UnifiedStatus } from '../unified/index.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -507,9 +507,20 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Get current session status
+     * Get current session status as the unified 3-state value.
+     * Internal `'input_needed'` is mapped to `'running'`. Use
+     * `getDetailedStatus()` for the underlying 4-state value.
      */
-    getStatus(): SessionStatus {
+    getStatus(): UnifiedStatus {
+        if (this._status === 'input_needed') return 'running';
+        return this._status;
+    }
+
+    /**
+     * Get the underlying 4-state Claude session status, including
+     * `'input_needed'` which the unified `getStatus()` collapses to `'running'`.
+     */
+    getDetailedStatus(): SessionStatus {
         return this._status;
     }
 
