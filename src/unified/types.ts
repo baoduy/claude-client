@@ -34,7 +34,16 @@ export type SendInput =
 
 export type ContentBlock =
   | { type: 'text'; text: string }
-  | { type: 'image'; source: ImageSource };
+  | { type: 'image'; source: ImageSource }
+  | { type: 'file_path'; path: string; displayName?: string }
+  | { type: 'directory_path'; path: string; displayName?: string }
+  | {
+      type: 'selection';
+      filePath: string;
+      displayName: string;
+      range?: { start: { line: number; character: number }; end: { line: number; character: number } };
+      text?: string;
+    };
 
 export type ImageSource =
   | { type: 'base64'; mediaType: string; data: string }
