@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.6.0 — 2026-04-29
+
+### Added
+- `createPtyClient(config)` factory and `PtyClient` interface — pure
+  passthrough PTY transport for daemon-layer embedding (typically Electron
+  main processes forwarding bytes to xterm.js or a custom renderer).
+  Spawns the underlying CLI in a real OS-level pseudo-terminal via
+  `node-pty`; library does not render.
+- `PtyClientConfig` discriminated union with provider-specific arg
+  mapping. Common fields: `cwd`, `cols`, `rows`, `env`, `bin`,
+  `extraArgs`. Claude maps `model`, `permissionMode`. Copilot maps
+  `model`, `allowAll`, `allowAllPaths`, `allowAllUrls`, `noAskUser`,
+  `allowTools`, `denyTools`, `addDir`.
+- Error types: `PtyError`, `PtyDependencyMissingError`,
+  `PtyBinaryNotFoundError`, `PtySpawnError` — with `code` discriminator
+  and `cause` chaining.
+- New `./pty` subpath: `import { createPtyClient } from '@baoduy2412/ai-cli-client/pty'`.
+- Examples under `examples/pty/`: `basic-claude.ts`, `basic-copilot.ts`,
+  `electron-main.ts`.
+- Consumer guide at `docs/pty-transport.md`.
+- `npm run integration:pty` smoke script.
+
+### Changed
+- `package.json` declares `node-pty: ">=1.0.0"` as an **optional peer
+  dependency**. Consumers using PTY mode must install it explicitly:
+  `npm install node-pty`. For Electron, rebuild via `npx @electron/rebuild`.
+- `CopilotClient` config field `transport: 'pty'` now points users at
+  `createPtyClient({ provider: 'copilot' })` in its error message
+  (still throws — the SDK-based path does not implement PTY).
+- `docs/provider-capabilities.md` documents the new PTY transport row.
+
+### Notes
+- PTY mode is a separate surface from `AICliClient`. The structured
+  surfaces (`ClaudeClient`, `CopilotClient`, `createAICliClient`) are
+  unaffected.
+- Copilot PTY mode bypasses `@github/copilot-sdk` and spawns the
+  `copilot` binary directly. BYOK and SDK-only features are not
+  available in PTY mode — use `CopilotClient` for those.
+
 ## 0.5.0 — 2026-04-29
 
 ### Added
