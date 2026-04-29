@@ -21,7 +21,7 @@ intentionally not on the unified interface.
 | `sessionId`       |   ✅   |   ✅    |  |
 | `capabilities`    |   ✅   |   ✅    | `AICliCapabilities` map for runtime feature detection |
 | `start`           |   ✅   |   ✅    |  |
-| `close`           |   ✅   |   ✅    | Claude's `close()` is an async alias for `kill()`; both providers fire `closed` event on close |
+| `close`           |   ✅   |   ✅    | Claude's `close()` is an async alias for `kill()`; Copilot's `close()` runs `session.abort()` → `session.disconnect()` → `client.stop()`, idempotent. Both providers fire `closed` event on close. |
 | `send`            |   ✅   |   ✅    | accepts `SendInput` (rich content); returns provider's `TurnHandle` (handle types diverge — use `getCurrentTurn()` for unified shape) |
 | `sendMessage`     |   ✅   |   ✅    | accepts `SendInput` |
 | `queueMessage`    |   ✅   |   ✅    | accepts `SendInput`; pre-scans synchronously |
@@ -40,11 +40,12 @@ for TypeScript optional chaining.
 
 | Method                  | Claude | Copilot | `capabilities.<flag>` |
 | ----------------------- | :----: | :-----: | --------------------- |
-| `setModel`              |   ✅   |   ❌    | `setModel`            |
+| `setModel`              |   ✅   |   ✅    | `setModel`            |
 | `setPermissionMode`     |   ✅   |   ❌    | `setPermissionMode`   |
 | `setMaxThinkingTokens`  |   ✅   |   ❌    | `setMaxThinkingTokens`|
-| `listSupportedModels`   |   ✅   |   ❌    | `listSupportedModels` |
-| Rich `SendInput`        |   ✅   |   ❌    | `richContent` — Copilot accepts `string` and text-only `content[]`; image blocks throw `UnsupportedContentError` |
+| `listSupportedModels`   |   ✅   |   ✅    | `listSupportedModels` |
+| `getMessages`           |   ✅   |   ✅    | `getMessages` — projects to `UnifiedMessage[]`; preserves the full provider event under `.raw.event` |
+| Rich `SendInput`        | partial | full   | `richContent` — `'none' \| 'partial' \| 'full'`. Claude accepts text + image; Copilot accepts text + image (base64) + file_path + directory_path + selection (mapped to SDK attachments). |
 
 ## Provider-specific (concrete class only)
 
@@ -139,8 +140,8 @@ All 12 events in `UnifiedEventMap` are available on both providers via
 | `allowTools` / `denyTools`  |   ❌   |   ✅    | Copilot declarative permission DSL |
 | `permissionMode`            |   ✅   |   ❌    | Claude interactive permissions |
 | `apiKey`                    |   ❌   |   ✅    | Copilot BYOK |
-| `hooks`                     |   ✅   |   ❌    | Claude hook callbacks |
-| `mcp`                       |   ✅   |   ❌    | Claude MCP server config |
+| `hooks`                     |   ✅   |   ✅    | provider-specific shape — Claude hooks vs Copilot `SessionHooks` (onPreToolUse, onPostToolUse, onUserPromptSubmitted, onSessionStart, onSessionEnd, onErrorOccurred) |
+| `mcp` / `mcpServers`        |   ✅   |   ✅    | provider-specific shape — Claude `mcp` config vs Copilot `mcpServers: Record<string, MCPServerConfig>` (stdio + http/sse) |
 | `printMode`                 |   ✅   |   ❌    | Claude one-shot mode |
 | `sessionId`                 |   ✅   |   ✅    | both providers support session resume |
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0 — 2026-04-29
+
+### Added
+- `AICliClient.getMessages()`: unified message history projection on both providers, returning `UnifiedMessage[]`. Capability flag `getMessages: true`.
+- `CopilotClient.setModel(model)`: maps to `session.setModel`. Capability flag `setModel: true` for Copilot.
+- `CopilotClient.listSupportedModels()`: maps to `client.listModels()`, projected to `SupportedModelsResponse`. Capability flag `listSupportedModels: true` for Copilot.
+- `CopilotClientConfig.hooks?: SessionHooks`: full Copilot hook lifecycle (`onPreToolUse`, `onPostToolUse`, `onUserPromptSubmitted`, `onSessionStart`, `onSessionEnd`, `onErrorOccurred`). Capability flag `hooks: true` for Copilot.
+- `CopilotClientConfig.mcpServers?: Record<string, MCPServerConfig>`: stdio + http/sse MCP servers at session creation. Capability flag `mcp: true` for Copilot.
+- `SendInput` content blocks: `file_path`, `directory_path`, `selection` (Copilot-only at runtime — passing them to Claude throws `UnsupportedContentError`).
+- `CopilotClient.send/sendMessage/queueMessage` now accept image content blocks (base64 → blob attachment); URL image source remains unsupported.
+
+### Changed
+- **Breaking (TS):** `AICliCapabilities.richContent` widened from `boolean` → `'none' | 'partial' | 'full'`. Truthy/falsy runtime checks remain semantically correct (`'none'` is falsy, `'partial' | 'full'` are truthy). Migration: replace `caps.richContent === true` with `caps.richContent !== 'none'`.
+- `CopilotClient.close()`: harmonized to `session.abort()` → `session.disconnect()` → `client.stop()`, idempotent. Both providers now emit `closed` event with `null` exit code on graceful close.
+
 ## 1.0.0 — 2026-04-29
 
 ### Breaking changes — unified surface expansion
