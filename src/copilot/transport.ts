@@ -51,6 +51,20 @@ export class CopilotTransport {
     }
   }
 
+  /**
+   * Tear down the active session: abort any in-flight turn, then disconnect
+   * the session. Errors from either step are swallowed since the SDK may not
+   * support them in every state. Called by `CopilotClient.close()` before
+   * `stop()` to drive the full lifecycle exit sequence.
+   */
+  async stopSession(): Promise<void> {
+    if (this.session) {
+      try { await this.session.abort?.(); } catch { /* swallow */ }
+      try { await this.session.disconnect?.(); } catch { /* swallow */ }
+      this.session = null;
+    }
+  }
+
   async stop(): Promise<void> {
     if (this.gh) {
       try { await (this.gh as any).stop(); } catch { /* swallow */ }

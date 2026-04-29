@@ -56,6 +56,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   private _currentTurn: CopilotTurnHandle | null = null;
   private _history: CopilotTurnSnapshot[] = [];
   private _messageQueue: CopilotMessage[] = [];
+  private _closed = false;
 
   constructor(config: CopilotClientConfig, internals?: CopilotClientInternals) {
     super();
@@ -70,6 +71,11 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   }
 
   async close(): Promise<void> {
+    if (this._closed) return;
+    this._closed = true;
+    // Drive the full lifecycle exit sequence:
+    // session.abort() → session.disconnect() → client.stop()
+    await this.transport.stopSession();
     await this.transport.stop();
     this._currentTurn = null;
     this.emit('closed', null);
