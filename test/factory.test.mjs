@@ -8,7 +8,7 @@ import { CopilotClient } from '../dist/esm/copilot/client.js';
 // ClaudeClient.init spawns the Claude binary; CopilotClient.start opens an
 // SDK transport. We mock those via prototype patching for these tests.
 
-function withClaudeInitStub(fn) {
+async function withClaudeInitStub(fn) {
   const original = ClaudeClient.init;
   let stubInstance = null;
   ClaudeClient.init = async (config) => {
@@ -19,19 +19,19 @@ function withClaudeInitStub(fn) {
     return stubInstance;
   };
   try {
-    return fn(() => stubInstance);
+    return await fn(() => stubInstance);
   } finally {
     ClaudeClient.init = original;
   }
 }
 
-function withCopilotStartStub(fn) {
+async function withCopilotStartStub(fn) {
   const originalStart = CopilotClient.prototype.start;
   CopilotClient.prototype.start = async function () {
     this._stubbedStarted = true;
   };
   try {
-    return fn();
+    return await fn();
   } finally {
     CopilotClient.prototype.start = originalStart;
   }
