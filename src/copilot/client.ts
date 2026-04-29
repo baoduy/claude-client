@@ -69,6 +69,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   async close(): Promise<void> {
     await this.transport.stop();
     this._currentTurn = null;
+    this.emit('closed', null);
   }
 
   get sessionId(): string | null {
