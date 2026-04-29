@@ -48,6 +48,11 @@
       "types": "./dist/types/pty/index.d.ts",
       "import": "./dist/esm/pty/index.js",
       "require": "./dist/cjs/pty/index.js"
+    },
+    "./unified": {
+      "types": "./dist/types/unified/index.d.ts",
+      "import": "./dist/esm/unified/index.js",
+      "require": "./dist/cjs/unified/index.js"
     }
   },
   "files": [
