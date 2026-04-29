@@ -1,7 +1,7 @@
 // src/pty/factory.ts
 import { access } from 'node:fs/promises';
 import type { PtyClient, PtyClientConfig } from './types.js';
-import { PtyClientImpl } from './client.js';
+import { PtyClientImpl, type PtyModuleLike } from './client.js';
 import {
   PtyDependencyMissingError,
   PtyBinaryNotFoundError,
@@ -10,23 +10,19 @@ import {
 import { buildClaudeArgs }  from './claude-args.js';
 import { buildCopilotArgs } from './copilot-args.js';
 
-/** node-pty module shape (subset). Loaded lazily. */
-type PtyModule = { spawn: (bin: string, args: string[], opts: any) => any };
-
 /** Test-injection seam. Not part of the public API. */
 export interface PtyFactoryInternals {
-  loadPty?: () => Promise<PtyModule>;
+  loadPty?: () => Promise<PtyModuleLike>;
   exists?: (path: string) => Promise<boolean>;
 }
 
-let cachedPtyModule: PtyModule | null = null;
+let cachedPtyModule: PtyModuleLike | null = null;
 
-async function defaultLoadPty(): Promise<PtyModule> {
+async function defaultLoadPty(): Promise<PtyModuleLike> {
   if (cachedPtyModule) return cachedPtyModule;
   try {
-    // @ts-ignore — node-pty is an optional peer dep; may not be installed.
     const mod = await import('node-pty');
-    cachedPtyModule = mod as PtyModule;
+    cachedPtyModule = mod as PtyModuleLike;
     return cachedPtyModule;
   } catch (err) {
     throw new PtyDependencyMissingError(
@@ -70,7 +66,7 @@ export async function createPtyClient(
   const loadPty = internals.loadPty ?? defaultLoadPty;
   const exists  = internals.exists  ?? defaultExists;
 
-  let pty: PtyModule;
+  let pty: PtyModuleLike;
   try {
     pty = await loadPty();
   } catch (err) {

@@ -17,7 +17,7 @@ interface PtyHandle {
   onExit(cb: (e: { exitCode: number; signal?: number | string }) => void): void;
 }
 
-interface PtyModuleLike {
+export interface PtyModuleLike {
   spawn(
     bin: string,
     args: string[],
