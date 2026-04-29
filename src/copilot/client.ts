@@ -84,7 +84,18 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     return this._status === 'running';
   }
 
-  getCurrentTurn(): CopilotTurnHandle | null {
+  /**
+   * Return the current turn snapshot, or `null`. Conforms to the
+   * unified `AICliClient.getCurrentTurn()` contract — `CopilotTurnSnapshot`
+   * extends `TurnSnapshot`. Use `getCurrentTurnHandle()` when you need
+   * the live `CopilotTurnHandle` instance.
+   */
+  getCurrentTurn(): CopilotTurnSnapshot | null {
+    return this._currentTurn ? this._currentTurn.current() : null;
+  }
+
+  /** Return the live CopilotTurnHandle for the current turn, or `null`. */
+  getCurrentTurnHandle(): CopilotTurnHandle | null {
     return this._currentTurn;
   }
 
