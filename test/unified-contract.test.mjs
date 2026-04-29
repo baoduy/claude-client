@@ -128,7 +128,7 @@ test('Copilot optional method presence matches capabilities', async () => {
   await withCopilotStartStub(async () => {
     const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
     // Methods Copilot now implements (track Group E gap-fill progress).
-    const presentMethods = new Set(['setModel', 'listSupportedModels']); // A5 + A6
+    const presentMethods = new Set(['setModel', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9
     for (const m of optionalMethods) {
       if (presentMethods.has(m)) {
         assert.equal(client.capabilities[m], true, `Copilot.capabilities.${m} should be true`);

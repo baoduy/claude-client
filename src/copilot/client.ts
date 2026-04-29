@@ -13,7 +13,7 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities, SendInput, SupportedModelsResponse } from '../unified/index.js';
+import type { AICliCapabilities, SendInput, SupportedModelsResponse, UnifiedMessage } from '../unified/index.js';
 import { sendInputToCopilotMessage, type CopilotMessage } from './attachments.js';
 
 export interface CopilotClientInternals {
@@ -44,7 +44,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     setPermissionMode: false,
     setMaxThinkingTokens: false,
     listSupportedModels: true,
-    getMessages: false,
+    getMessages: true,
     hooks: false,
     mcp: false,
   };
@@ -318,6 +318,67 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         displayName: m.displayName ?? m.name,
       })),
     };
+  }
+
+  async getMessages(): Promise<UnifiedMessage[]> {
+    const session = (this.transport as any).session;
+    if (!session) throw new Error('Copilot session not started — call start() first.');
+    const events: any[] = await session.getMessages();
+    const out: UnifiedMessage[] = [];
+    for (const ev of events) {
+      const ts = ev.timestamp ? Date.parse(ev.timestamp) : Date.now();
+      switch (ev.type) {
+        case 'user.message':
+          out.push({
+            id: ev.id,
+            role: 'user',
+            text: ev.data?.content ?? '',
+            timestamp: ts,
+            raw: { provider: 'copilot', event: ev },
+          });
+          break;
+        case 'assistant.message':
+          out.push({
+            id: ev.id,
+            role: 'assistant',
+            text: ev.data?.content ?? '',
+            ...(ev.data?.reasoning && { reasoning: ev.data.reasoning }),
+            timestamp: ts,
+            raw: { provider: 'copilot', event: ev },
+          });
+          break;
+        case 'tool.execution_start':
+          out.push({
+            id: ev.id,
+            role: 'tool',
+            toolUse: {
+              id: ev.data?.toolUseId ?? ev.id,
+              name: ev.data?.toolName ?? '',
+              input: ev.data?.arguments ?? {},
+            },
+            timestamp: ts,
+            raw: { provider: 'copilot', event: ev },
+          });
+          break;
+        case 'tool.execution_complete':
+          out.push({
+            id: ev.id,
+            role: 'tool',
+            toolResult: {
+              toolUseId: ev.data?.toolUseId ?? ev.id,
+              content: ev.data?.output ?? ev.data?.content ?? '',
+              isError: ev.data?.isError === true || ev.data?.success === false,
+            },
+            timestamp: ts,
+            raw: { provider: 'copilot', event: ev },
+          });
+          break;
+        default:
+          // skip lifecycle / streaming-delta events — they are not user-visible messages
+          break;
+      }
+    }
+    return out;
   }
 
   async interrupt(): Promise<void> {
