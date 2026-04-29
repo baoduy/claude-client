@@ -1,3 +1,7 @@
+import type {
+  TurnSnapshot,
+} from '../unified/types.js';
+
 /** Configuration for CopilotClient. Matches the spec §5 verbatim. */
 export interface CopilotClientConfig {
   cwd: string;
@@ -42,17 +46,23 @@ export interface CopilotClientConfig {
   transport?: 'programmatic' | 'pty';
 }
 
-/** Cumulative snapshot of a Copilot turn. */
-export interface CopilotTurnSnapshot {
-  turnId: string;
-  status: 'queued' | 'running' | 'completed' | 'error';
-  text: string;
-  reasoningText: string;
-  toolCalls: CopilotToolCall[];
-  usage: CopilotUsage | null;
-  startedAt: number;
-  endedAt: number | null;
-  error: { name: string; message: string } | null;
+/**
+ * Cumulative snapshot of a Copilot turn.
+ *
+ * Extends the unified `TurnSnapshot` so consumers writing
+ * provider-agnostic code see a consistent shape across providers.
+ * Copilot-specific richness (raw SDK tool calls, raw usage payload) is
+ * preserved on dedicated fields.
+ */
+export interface CopilotTurnSnapshot extends TurnSnapshot {
+  // Inherited from TurnSnapshot:
+  //   id, status, text, reasoning?, toolUses, toolResults, usage?,
+  //   error?, startedAt, completedAt?
+
+  /** Raw SDK tool-call records (preserves shape for narrowed access). */
+  copilotToolCalls: CopilotToolCall[];
+  /** Raw SDK usage payload, preserved for narrowed access. */
+  copilotUsageRaw?: CopilotUsage;
 }
 
 /** Per-step update pushed onto the TurnHandle iterator. */

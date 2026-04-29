@@ -98,17 +98,20 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     if (this._currentTurn) {
       throw new Error('A turn is already in flight. Call interrupt() first or await turn.done.');
     }
-    const turnId = randomUUID();
+    const id = `copilot-${randomUUID()}`;
     const initial: CopilotTurnSnapshot = {
-      turnId,
-      status: 'running',
+      id,
+      status: 'pending',
       text: '',
-      reasoningText: '',
-      toolCalls: [],
-      usage: null,
+      reasoning: undefined,
+      toolUses: [],
+      toolResults: [],
+      usage: undefined,
+      error: undefined,
       startedAt: Date.now(),
-      endedAt: null,
-      error: null,
+      completedAt: undefined,
+      copilotToolCalls: [],
+      copilotUsageRaw: undefined,
     };
     const handle = new CopilotTurnHandle(initial);
     this._currentTurn = handle;
@@ -157,14 +160,14 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         ...handle.current(),
         text: finalText,
         status: 'completed',
-        endedAt: Date.now(),
+        completedAt: Date.now(),
       };
       handle.complete(finalSnapshot);
       this.emit('result', finalSnapshot);
       this._history.push(finalSnapshot);
     } catch (err: any) {
       // If handle was already terminated (e.g., via interrupt()), skip re-failing and re-emitting.
-      if (handle.current().status !== 'error') {
+      if (handle.current().status !== 'errored') {
         const wrapped = err instanceof Error
           ? new CopilotTurnError(err.message)
           : new CopilotTurnError(String(err));
@@ -175,7 +178,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     } finally {
       if (typeof unsubscribe === 'function') unsubscribe();
       this._currentTurn = null;
-      this.setStatus(handle.current().status === 'error' ? 'error' : 'idle');
+      this.setStatus(handle.current().status === 'errored' ? 'error' : 'idle');
       this.processNextQueued();
     }
   }
