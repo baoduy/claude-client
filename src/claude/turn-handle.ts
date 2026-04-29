@@ -17,15 +17,13 @@ export type OutputKind =
 
 export type TurnStatus = 'queued' | 'running' | 'waiting' | 'completed' | 'error';
 
-export interface ClaudeSendContentBlock {
-    type: string;
-    [key: string]: any;
-}
+// ClaudeSendInput is structurally identical to the unified SendInput.
+// Aliased here so existing internal call sites can keep the local name,
+// while consumers receive the unified type.
+import type { SendInput as ClaudeSendInputUnified, ContentBlock as ClaudeSendContentBlockUnified } from '../unified/types.js';
 
-export type ClaudeSendInput =
-    | string
-    | { text: string }
-    | { content: ClaudeSendContentBlock[] };
+export type ClaudeSendInput = ClaudeSendInputUnified;
+export type ClaudeSendContentBlock = ClaudeSendContentBlockUnified;
 
 export interface ClaudeSendOptions {
     metadata?: Record<string, unknown>;
@@ -275,7 +273,9 @@ function toTextContent(input: ClaudeSendInput): string {
     }
 
     return input.content
-        .filter((block) => block.type === 'text' && typeof block.text === 'string')
+        .filter((block): block is { type: 'text'; text: string } =>
+            block.type === 'text' && typeof block.text === 'string'
+        )
         .map((block) => block.text)
         .join('\n');
 }

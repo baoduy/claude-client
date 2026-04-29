@@ -43,8 +43,10 @@ test('ClaudeClient streams updates without polling', async () => {
     uuid: 'stream-1',
     event: { type: 'message_start', message: {} }
   });
-  client.emit('text_accumulated', 'Hello');
-  client.emit('thinking_accumulated', 'Thinking');
+  client._accumulatedText = 'Hello';
+  client.emit('text', 'Hello');
+  client._accumulatedThinking = 'Thinking';
+  client.emit('reasoning', 'Thinking');
 
   const snapshot = turn.current();
   assert.equal(snapshot.status, 'running');
@@ -199,8 +201,8 @@ test('ClaudeClient attaches to an existing waiting turn and answers questions', 
 
   const [request] = client.getOpenRequests();
   assert.equal(request.kind, 'question');
-  assert.equal(client.getCurrentTurn()?.metadata?.synthetic, true);
-  assert.equal(client.getCurrentTurn()?.metadata?.resumed, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.synthetic, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.resumed, true);
 
   await client.answerQuestion(request.id, 'Yes');
 

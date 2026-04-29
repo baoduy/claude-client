@@ -70,13 +70,11 @@ test('attachMcpHandlers routes responses and returns cleanup function', async ()
   dispose();
 });
 
-test('ClaudeClient accumulates stream deltas', () => {
+test('ClaudeClient emits text events per delta', () => {
   const client = new ClaudeClient({ cwd: process.cwd() });
-  const deltas = [];
-  const accumulated = [];
+  const chunks = [];
 
-  client.on('text_delta', (delta) => deltas.push(delta));
-  client.on('text_accumulated', (value) => accumulated.push(value));
+  client.on('text', (chunk) => chunks.push(chunk));
 
   client.handleStreamEvent({
     type: 'content_block_delta',
@@ -88,8 +86,7 @@ test('ClaudeClient accumulates stream deltas', () => {
     delta: { type: 'text_delta', text: ' world' }
   });
 
-  assert.deepEqual(deltas, ['Hello', ' world']);
-  assert.deepEqual(accumulated, ['Hello', 'Hello world']);
+  assert.deepEqual(chunks, ['Hello', ' world']);
 });
 
 test('session path escaping stays deterministic', () => {

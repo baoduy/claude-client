@@ -1,5 +1,143 @@
 # Changelog
 
+## 1.0.0 — 2026-04-29
+
+### Breaking changes — unified surface expansion
+
+The `AICliClient` interface expanded from a "lowest common denominator"
+(10 members) to a capability superset (~22 members). Both providers now
+share an event vocabulary, a snapshot shape, and runtime feature
+detection. Provider-specific surfaces remain accessible via the
+`provider` discriminant.
+
+#### Migration table
+
+```
+0.6 → 1.0 migration
+
+Events on AICliClient (now strongly typed over UnifiedEventMap):
+  text_delta / output_delta         →  text
+  thinking_delta / reasoning_delta  →  reasoning
+  text_accumulated                  →  text_done
+  thinking_accumulated              →  reasoning_done
+  exit                              →  closed
+  tool_use (Claude legacy)          →  removed (use tool_use_start)
+
+Status:
+  ClaudeClient.getStatus()          →  returns UnifiedStatus (3-state).
+                                       'input_needed' maps to 'running'.
+                                       Use getDetailedStatus() for the
+                                       4-state value.
+
+Send input:
+  AICliClient.send(string)          →  AICliClient.send(SendInput)
+                                       (SendInput = string | {text} | {content[]}).
+                                       String inputs unchanged. Rich
+                                       content blocks (text + image) on
+                                       Claude. Copilot rejects images
+                                       synchronously via UnsupportedContentError.
+
+Capabilities (new):
+  client.capabilities.{flag}        →  runtime feature detection
+                                       (richContent, setModel,
+                                        setPermissionMode,
+                                        setMaxThinkingTokens,
+                                        listSupportedModels)
+  client.setModel?.(...)            →  TypeScript optional invocation
+                                       (Claude implements all four
+                                        Group E methods; Copilot none)
+
+Snapshots:
+  Claude TurnSnapshot.startedAt     →  number (epoch ms; was ISO string)
+  Claude TurnSnapshot.completedAt   →  number (epoch ms; was ISO string)
+  Copilot TurnSnapshot.turnId       →  id  (Copilot ids prefixed 'copilot-')
+  Copilot TurnSnapshot.reasoningText → reasoning?
+  Copilot TurnSnapshot.endedAt      →  completedAt?
+  Copilot snapshot status           →  'pending'|'completed'|'errored'
+                                       (was 'queued'|'running'|'completed'|'error')
+  Copilot error shape               →  { message, code? }  (was { name, message })
+  Copilot tool calls                →  toolUses[] / toolResults[]
+                                       (raw SDK records on copilotToolCalls)
+
+CopilotClient.getCurrentTurn()      →  returns CopilotTurnSnapshot | null
+                                       (was CopilotTurnHandle | null).
+                                       Use getCurrentTurnHandle() for
+                                       the live handle.
+
+ClaudeClient.getCurrentTurn()       →  returns unified TurnSnapshot | null
+                                       (was rich Claude shape).
+                                       Use getCurrentTurnDetailed() for
+                                       the rich shape.
+
+Removed Claude internal:
+  ClaudeSendInput                   →  unified SendInput (alias kept for
+                                       source-compat at the type level)
+  ClaudeSendContentBlock            →  unified ContentBlock (text|image
+                                       discriminated union, replacing the
+                                       loose {type: string; ...} shape)
+```
+
+### Added
+
+- `src/unified/*` — shared types module:
+  - `UnifiedStatus`, `TurnSnapshot`, `TurnToolUse`, `TurnToolResult`
+  - `SendInput`, `ContentBlock`, `ImageSource`
+  - `AICliCapabilities`, `PermissionMode`, `SupportedModelsResponse`
+  - `UnifiedEventMap` (12 events)
+  - `UnsupportedContentError`
+- `./unified` subpath export in `package.json`.
+- `AICliClient.capabilities` runtime feature-detection map.
+- `AICliClient.getStatus()`, `isProcessing()`, `getCurrentTurn()`,
+  `getHistory()`, `off()` lifted onto the unified interface.
+- Strongly-typed `AICliClient.on()` / `off()` over `UnifiedEventMap`.
+- Optional `setModel`, `setPermissionMode`, `setMaxThinkingTokens`,
+  `listSupportedModels` on `AICliClient` (Claude implements all four;
+  Copilot omits all four).
+- Rich `SendInput` accepted on `send`/`sendMessage`/`queueMessage`.
+- Unified events: `text`, `text_done`, `reasoning`, `reasoning_done`,
+  `closed`.
+- `ClaudeClient.getDetailedStatus()` for the 4-state Claude status.
+- `ClaudeClient.getCurrentTurnDetailed()` /
+  `ClaudeClient.getHistoryDetailed()` for rich Claude snapshot access.
+- `CopilotClient.getCurrentTurnHandle()` for the live `CopilotTurnHandle`.
+- `npm run integration:cross-provider` smoke script.
+- Tests: `unified-events`, `unified-snapshot`, `unified-capabilities`,
+  `event-ordering`, `unified-errors`, plus expanded
+  `unified-contract.test.mjs`. Suite grows from 128 to 172 cases.
+
+### Changed
+
+- `AICliClient.getStatus()` now returns `UnifiedStatus` (3-state).
+  Claude maps `'input_needed'` to `'running'` at the unified layer.
+- `CopilotTurnSnapshot` now extends unified `TurnSnapshot`; field
+  renames per migration table above.
+- `ClaudeTurnSnapshot.startedAt` / `completedAt` are now epoch ms
+  (number) instead of ISO strings when surfaced through the unified
+  adapter.
+- `CopilotClient.sendMessage` is no longer `async` — synchronous
+  validation surfaces before the Promise is constructed.
+
+### Removed
+
+Events on Claude (renamed/dropped):
+  `text_delta`, `text_accumulated`, `thinking_delta`,
+  `thinking_accumulated`, `exit`, `tool_use` (legacy).
+
+Events on Copilot:
+  `output_delta`, `reasoning_delta`.
+
+### Deferred
+
+- **Group D** — interactive approval unification (`getOpenRequests`,
+  `approveRequest`, `denyRequest`, `answerQuestion`,
+  `createQuestionSession`) remains on `ClaudeClient` only. Lifting
+  requires a Copilot SDK upgrade.
+- **Group F** — low-level escape hatches (`sendControlRequest`,
+  `sendMcpMessage`, `sendMcpControlResponse`) remain on `ClaudeClient`
+  only.
+
+PTY transport is unaffected by this release.
+
 ## 0.6.0 — 2026-04-29
 
 ### Added

@@ -40,6 +40,13 @@ import {
 } from './turn-handle.js';
 import type { AICliClient } from '../ai-cli-client.js';
 import type {
+    AICliCapabilities,
+    TurnSnapshot as UnifiedTurnSnapshot,
+    TurnToolUse as UnifiedTurnToolUse,
+    TurnToolResult as UnifiedTurnToolResult,
+    UnifiedStatus,
+} from '../unified/index.js';
+import type {
     ClaudeSendInput,
     ClaudeSendOptions,
     HookRequest,
@@ -369,11 +376,10 @@ export declare interface ClaudeClient {
     on(event: 'task_message', listener: (event: TaskMessageEvent) => void): this;
     on(event: 'message', listener: (message: AssistantMessage) => void): this;
     on(event: 'stream_event', listener: (event: StreamEventMessage) => void): this;
-    on(event: 'text_delta', listener: (text: string) => void): this;
-    on(event: 'thinking_delta', listener: (thinking: string) => void): this;
-    on(event: 'text_accumulated', listener: (text: string) => void): this;
-    on(event: 'thinking_accumulated', listener: (thinking: string) => void): this;
-    on(event: 'tool_use', listener: (tool: any) => void): this;
+    on(event: 'text', listener: (chunk: string) => void): this;
+    on(event: 'text_done', listener: (text: string) => void): this;
+    on(event: 'reasoning', listener: (chunk: string) => void): this;
+    on(event: 'reasoning_done', listener: (text: string) => void): this;
     on(event: 'tool_use_start', listener: (tool: ToolUseStartEvent) => void): this;
     on(event: 'tool_result', listener: (result: ToolResultEvent) => void): this;
     on(event: 'control_request', listener: (request: ControlRequestMessage) => void): this;
@@ -381,7 +387,7 @@ export declare interface ClaudeClient {
     on(event: 'control_response', listener: (response: ControlResponseEnvelope) => void): this;
     on(event: 'user_message', listener: (message: UserMessage) => void): this;
     on(event: 'error', listener: (error: Error) => void): this;
-    on(event: 'exit', listener: (code: number | null) => void): this;
+    on(event: 'closed', listener: (exitCode: number | null) => void): this;
     on(event: 'result', listener: (result: ResultMessage) => void): this;
     on(event: 'usage_update', listener: (usage: Usage) => void): this;
     on(event: 'status_change', listener: (status: SessionStatus, pendingAction: PendingAction | null) => void): this;
@@ -417,6 +423,13 @@ type _InternalOpenRequest = _InternalQuestionRequest | _InternalToolRequest | _I
 
 export class ClaudeClient extends EventEmitter implements ITurnSession, AICliClient {
     readonly provider = 'claude' as const;
+    readonly capabilities: AICliCapabilities = {
+        richContent: true,
+        setModel: true,
+        setPermissionMode: true,
+        setMaxThinkingTokens: true,
+        listSupportedModels: true,
+    };
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
     private readonly transport = new ClaudeTransport();
@@ -499,9 +512,20 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Get current session status
+     * Get current session status as the unified 3-state value.
+     * Internal `'input_needed'` is mapped to `'running'`. Use
+     * `getDetailedStatus()` for the underlying 4-state value.
      */
-    getStatus(): SessionStatus {
+    getStatus(): UnifiedStatus {
+        if (this._status === 'input_needed') return 'running';
+        return this._status;
+    }
+
+    /**
+     * Get the underlying 4-state Claude session status, including
+     * `'input_needed'` which the unified `getStatus()` collapses to `'running'`.
+     */
+    getDetailedStatus(): SessionStatus {
         return this._status;
     }
 
@@ -651,7 +675,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 });
 
                 this.process.on('exit', (code) => {
-                    this.emit('exit', code);
+                    this.emit('closed', code);
                     this.logDebug(`Process exited with code: ${code}`);
                     this.process = null;
                     this.readyEmitted = false;
@@ -760,7 +784,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 });
 
                 this.process.on('exit', (code) => {
-                    this.emit('exit', code);
+                    this.emit('closed', code);
                     this.logDebug(`Process exited with code: ${code}`);
                     this.process = null;
 
@@ -1419,9 +1443,18 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 // Update status and process queue
                 this._isProcessingMessage = false;
                 this.setStatus(resMessage.is_error ? 'error' : 'idle');
-                
+
+                // Fire turn-end "done" events before result so consumers can
+                // capture the final accumulated text/reasoning in turn order.
+                if (this._accumulatedText) {
+                    this.emit('text_done', this._accumulatedText);
+                }
+                if (this._accumulatedThinking) {
+                    this.emit('reasoning_done', this._accumulatedThinking);
+                }
+
                 this.emit('result', resMessage);
-                
+
                 // Process next queued message if any
                 this.processNextQueuedMessage();
                 break;
@@ -1451,12 +1484,10 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 const delta = event.delta as ContentDelta;
                 if (delta.type === 'text_delta' && delta.text) {
                     this._accumulatedText += delta.text;
-                    this.emit('text_delta', delta.text);  // Delta for backwards compat
-                    this.emit('text_accumulated', this._accumulatedText);  // Full accumulated
+                    this.emit('text', delta.text);
                 } else if (delta.type === 'thinking_delta' && delta.thinking) {
                     this._accumulatedThinking += delta.thinking;
-                    this.emit('thinking_delta', delta.thinking);  // Delta for backwards compat
-                    this.emit('thinking_accumulated', this._accumulatedThinking);  // Full accumulated
+                    this.emit('reasoning', delta.thinking);
                 } else if (delta.type === 'input_json_delta' && delta.partial_json) {
                     // Accumulate tool input JSON
                     if (this._currentToolBlock) {
@@ -1630,12 +1661,14 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
             this._scHandleStreamEvent(turn, message);
         });
 
-        this.on('text_accumulated', (text) => {
-            this._scActiveTurn?.updateOutput('text', text);
+        // Internal: keep the structured-client snapshot's text/thinking in
+        // sync with the running accumulators on every chunk.
+        this.on('text', () => {
+            this._scActiveTurn?.updateOutput('text', this._accumulatedText);
         });
 
-        this.on('thinking_accumulated', (thinking) => {
-            this._scActiveTurn?.updateOutput('thinking', thinking);
+        this.on('reasoning', () => {
+            this._scActiveTurn?.updateOutput('thinking', this._accumulatedThinking);
         });
 
         this.on('usage_update', (usage) => {
@@ -1717,22 +1750,98 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Return a snapshot of the currently active turn, or null.
+     * Return the current turn as a unified `TurnSnapshot`, or `null`.
+     *
+     * The unified shape collapses Claude-specific richness; use
+     * `getCurrentTurnDetailed()` when you need the full Claude
+     * `TurnSnapshot` (with `thinking`, `currentMessage`, `metadata`, etc.).
      */
-    getCurrentTurn(): TurnSnapshot | null {
+    getCurrentTurn(): UnifiedTurnSnapshot | null {
+        const handle = this._scActiveTurn;
+        return handle ? this._toUnifiedSnapshot(handle.current()) : null;
+    }
+
+    /**
+     * Return unified `TurnSnapshot[]` for all completed and errored turns.
+     * Use `getHistoryDetailed()` for the rich Claude-specific snapshots.
+     */
+    getHistory(): UnifiedTurnSnapshot[] {
+        return this._scTurns
+            .filter((turn) => {
+                const snapshot = turn.current();
+                return snapshot.status === 'completed' || snapshot.status === 'error';
+            })
+            .map((turn) => this._toUnifiedSnapshot(turn.current()));
+    }
+
+    /**
+     * Return a snapshot of the currently active turn (rich Claude shape), or null.
+     */
+    getCurrentTurnDetailed(): TurnSnapshot | null {
         return this._scActiveTurn ? this._scActiveTurn.current() : null;
     }
 
     /**
-     * Return snapshots for all completed/errored turns.
+     * Return rich Claude snapshots for all completed/errored turns.
      */
-    getHistory(): TurnSnapshot[] {
+    getHistoryDetailed(): TurnSnapshot[] {
         return this._scTurns
             .filter((turn) => {
                 const snapshot = turn.current();
                 return snapshot.status === 'completed' || snapshot.status === 'error';
             })
             .map((turn) => turn.current());
+    }
+
+    /**
+     * Adapt a Claude `TurnSnapshot` to the unified `TurnSnapshot` shape.
+     * - `thinking` aliases to `reasoning`
+     * - `usage` is renamed (input_tokens → inputTokens, output_tokens → outputTokens)
+     * - `startedAt`/`completedAt` ISO strings convert to epoch ms
+     * - 5-state Claude `TurnStatus` collapses to 3-state `'pending'|'completed'|'errored'`
+     * - `result.error` populates `error` when present
+     */
+    private _toUnifiedSnapshot(s: TurnSnapshot): UnifiedTurnSnapshot {
+        const status: 'pending' | 'completed' | 'errored' =
+            s.status === 'completed' ? 'completed'
+            : s.status === 'error' ? 'errored'
+            : 'pending';
+
+        const toolUses: UnifiedTurnToolUse[] = s.toolUses.map((t) => ({
+            id: t.id,
+            name: t.name,
+            input: t.input,
+        }));
+
+        const toolResults: UnifiedTurnToolResult[] = s.toolResults.map((r) => ({
+            toolUseId: r.toolUseId,
+            content: r.content,
+            isError: r.isError,
+        }));
+
+        const usage = s.usage
+            ? { inputTokens: s.usage.input_tokens, outputTokens: s.usage.output_tokens }
+            : undefined;
+
+        const error = s.result?.isError
+            ? {
+                message: s.result.error ?? s.result.result ?? 'Unknown error',
+                code: s.result.subtype,
+            }
+            : undefined;
+
+        return {
+            id: s.id,
+            status,
+            text: s.text,
+            reasoning: s.thinking || undefined,
+            toolUses,
+            toolResults,
+            usage,
+            error,
+            startedAt: Date.parse(s.startedAt),
+            completedAt: s.completedAt ? Date.parse(s.completedAt) : undefined,
+        };
     }
 
     /**

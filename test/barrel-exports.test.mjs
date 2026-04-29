@@ -17,3 +17,13 @@ test('top-level barrel exports createPtyClient', async () => {
   assert.equal(typeof mod.createPtyClient, 'function');
   assert.equal(typeof mod.PtyDependencyMissingError, 'function');
 });
+
+test('top-level barrel exports UnsupportedContentError (unified)', async () => {
+  const mod = await import('../dist/esm/index.js');
+  assert.equal(typeof mod.UnsupportedContentError, 'function');
+});
+
+test('./unified subpath barrel re-exports UnsupportedContentError', async () => {
+  const mod = await import('../dist/esm/unified/index.js');
+  assert.equal(typeof mod.UnsupportedContentError, 'function');
+});

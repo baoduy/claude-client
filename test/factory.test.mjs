@@ -37,6 +37,21 @@ async function withCopilotStartStub(fn) {
   }
 }
 
+test('createAICliClient returns a client with capabilities', async () => {
+  await withClaudeInitStub(async () => {
+    const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });
+    assert.ok(client.capabilities, 'client.capabilities should exist');
+    assert.equal(typeof client.capabilities.richContent, 'boolean');
+    assert.equal(client.capabilities.setModel, true);
+  });
+
+  await withCopilotStartStub(async () => {
+    const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
+    assert.ok(client.capabilities);
+    assert.equal(client.capabilities.setModel, false);
+  });
+});
+
 test('createAICliClient dispatches to ClaudeClient for provider: "claude"', async () => {
   await withClaudeInitStub(async (getStub) => {
     const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });

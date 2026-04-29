@@ -1,6 +1,6 @@
 {
   "name": "@baoduy2412/ai-cli-client",
-  "version": "0.6.0",
+  "version": "1.0.0",
   "description": "Node.js client for controlling Copilot and Claude Code CLI via stream-json protocol.",
   "license": "MIT",
   "author": "Steven Hoang",
@@ -48,6 +48,11 @@
       "types": "./dist/types/pty/index.d.ts",
       "import": "./dist/esm/pty/index.js",
       "require": "./dist/cjs/pty/index.js"
+    },
+    "./unified": {
+      "types": "./dist/types/unified/index.d.ts",
+      "import": "./dist/esm/unified/index.js",
+      "require": "./dist/cjs/unified/index.js"
     }
   },
   "files": [
@@ -96,6 +101,7 @@
     "integration:structured": "npm run build && node ./scripts/integration-structured-smoke.mjs",
     "integration:structured-multipass": "npm run build && node ./scripts/integration-structured-multipass.mjs",
     "integration:pty": "npm run build && node ./scripts/integration-pty.mjs",
+    "integration:cross-provider": "npm run build && node ./scripts/integration-cross-provider.mjs",
     "integration": "npm run integration:worktree && npm run integration:tmux",
     "prepack": "npm run build"
   },

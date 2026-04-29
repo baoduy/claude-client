@@ -58,9 +58,9 @@ export class CopilotTurnHandle implements TurnHandleBase<CopilotTurnSnapshot, Co
     if (this._terminated) return;
     const errSnapshot: CopilotTurnSnapshot = {
       ...this._snapshot,
-      status: 'error',
-      endedAt: Date.now(),
-      error: { name: error.name, message: error.message },
+      status: 'errored',
+      completedAt: Date.now(),
+      error: { message: error.message, code: error.name },
     };
     this._snapshot = errSnapshot;
     const errUpdate: CopilotTurnUpdate = { kind: 'error', error, snapshot: errSnapshot };

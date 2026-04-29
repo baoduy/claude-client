@@ -13,6 +13,8 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
+import type { AICliCapabilities, SendInput, ContentBlock } from '../unified/index.js';
+import { UnsupportedContentError } from '../unified/index.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -21,8 +23,11 @@ export interface CopilotClientInternals {
 
 export declare interface CopilotClient {
   on(event: 'ready',           listener: () => void): this;
-  on(event: 'output_delta',    listener: (delta: string) => void): this;
-  on(event: 'reasoning_delta', listener: (delta: string) => void): this;
+  on(event: 'text',            listener: (chunk: string) => void): this;
+  on(event: 'text_done',       listener: (text: string) => void): this;
+  on(event: 'reasoning',       listener: (chunk: string) => void): this;
+  on(event: 'reasoning_done',  listener: (text: string) => void): this;
+  on(event: 'closed',          listener: (exitCode: number | null) => void): this;
   on(event: 'tool_use_start',  listener: (tool: { id: string; name: string; input: Record<string, any> }) => void): this;
   on(event: 'tool_result',     listener: (res: { toolUseId: string; content: string; isError: boolean }) => void): this;
   on(event: 'usage_update',    listener: (u: { inputTokens: number; outputTokens: number }) => void): this;
@@ -33,6 +38,13 @@ export declare interface CopilotClient {
 
 export class CopilotClient extends EventEmitter implements AICliClient {
   readonly provider = 'copilot' as const;
+  readonly capabilities: AICliCapabilities = {
+    richContent: false,
+    setModel: false,
+    setPermissionMode: false,
+    setMaxThinkingTokens: false,
+    listSupportedModels: false,
+  };
 
   private readonly config: CopilotClientConfig;
   private readonly transport: CopilotTransport;
@@ -57,6 +69,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   async close(): Promise<void> {
     await this.transport.stop();
     this._currentTurn = null;
+    this.emit('closed', null);
   }
 
   get sessionId(): string | null {
@@ -71,7 +84,18 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     return this._status === 'running';
   }
 
-  getCurrentTurn(): CopilotTurnHandle | null {
+  /**
+   * Return the current turn snapshot, or `null`. Conforms to the
+   * unified `AICliClient.getCurrentTurn()` contract — `CopilotTurnSnapshot`
+   * extends `TurnSnapshot`. Use `getCurrentTurnHandle()` when you need
+   * the live `CopilotTurnHandle` instance.
+   */
+  getCurrentTurn(): CopilotTurnSnapshot | null {
+    return this._currentTurn ? this._currentTurn.current() : null;
+  }
+
+  /** Return the live CopilotTurnHandle for the current turn, or `null`. */
+  getCurrentTurnHandle(): CopilotTurnHandle | null {
     return this._currentTurn;
   }
 
@@ -86,21 +110,60 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     this.emit('status_change', status, action);
   }
 
-  send(prompt: string): CopilotTurnHandle {
+  /**
+   * Flatten a `SendInput` to a plain text prompt suitable for the Copilot SDK.
+   *
+   * - `string` — passed through unchanged.
+   * - `{ text }` — unwrapped.
+   * - `{ content: [...] }` — text blocks are concatenated; non-text blocks
+   *   (e.g. images) cause a synchronous `UnsupportedContentError` carrying
+   *   the offending block and its index. The pre-scan happens before any
+   *   side effects so callers can retry with corrected input.
+   *
+   * Empty `content: []` arrays throw as well — there is no text to send.
+   */
+  private _flattenSendInput(input: SendInput): string {
+    if (typeof input === 'string') return input;
+    if ('text' in input) return input.text;
+
+    if (input.content.length === 0) {
+      throw new UnsupportedContentError(
+        'copilot',
+        { type: 'text', text: '' } as ContentBlock,
+        0,
+      );
+    }
+
+    let out = '';
+    for (let i = 0; i < input.content.length; i++) {
+      const block = input.content[i];
+      if (block.type !== 'text') {
+        throw new UnsupportedContentError('copilot', block, i);
+      }
+      out += block.text;
+    }
+    return out;
+  }
+
+  send(input: SendInput): CopilotTurnHandle {
+    const prompt = this._flattenSendInput(input);
     if (this._currentTurn) {
       throw new Error('A turn is already in flight. Call interrupt() first or await turn.done.');
     }
-    const turnId = randomUUID();
+    const id = `copilot-${randomUUID()}`;
     const initial: CopilotTurnSnapshot = {
-      turnId,
-      status: 'running',
+      id,
+      status: 'pending',
       text: '',
-      reasoningText: '',
-      toolCalls: [],
-      usage: null,
+      reasoning: undefined,
+      toolUses: [],
+      toolResults: [],
+      usage: undefined,
+      error: undefined,
       startedAt: Date.now(),
-      endedAt: null,
-      error: null,
+      completedAt: undefined,
+      copilotToolCalls: [],
+      copilotUsageRaw: undefined,
     };
     const handle = new CopilotTurnHandle(initial);
     this._currentTurn = handle;
@@ -114,16 +177,21 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     return handle;
   }
 
-  async sendMessage(text: string): Promise<void> {
-    const turn = this.send(text);
-    await turn.done;
+  sendMessage(input: SendInput): Promise<void> {
+    // Note: not `async`. Validation runs synchronously so bad input throws
+    // before the Promise is constructed. send() pre-scans content blocks
+    // and throws UnsupportedContentError if any are not text.
+    const turn = this.send(input);
+    return turn.done.then(() => undefined);
   }
 
-  queueMessage(text: string): void {
+  queueMessage(input: SendInput): void {
+    // Pre-scan synchronously so bad input fails fast even when queued.
+    const prompt = this._flattenSendInput(input);
     if (this._status === 'running') {
-      this._messageQueue.push(text);
+      this._messageQueue.push(prompt);
     } else {
-      this.sendMessage(text).catch(err => this.emit('error', err));
+      this.sendMessage(prompt).catch(err => this.emit('error', err));
     }
   }
 
@@ -149,14 +217,25 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         ...handle.current(),
         text: finalText,
         status: 'completed',
-        endedAt: Date.now(),
+        completedAt: Date.now(),
       };
       handle.complete(finalSnapshot);
+
+      // Fire turn-end "done" events before result so consumers see the
+      // final accumulated text/reasoning in turn order. Skip when nothing
+      // was emitted to avoid empty-string false-positives.
+      if (finalSnapshot.text) {
+        this.emit('text_done', finalSnapshot.text);
+      }
+      if (finalSnapshot.reasoning) {
+        this.emit('reasoning_done', finalSnapshot.reasoning);
+      }
+
       this.emit('result', finalSnapshot);
       this._history.push(finalSnapshot);
     } catch (err: any) {
       // If handle was already terminated (e.g., via interrupt()), skip re-failing and re-emitting.
-      if (handle.current().status !== 'error') {
+      if (handle.current().status !== 'errored') {
         const wrapped = err instanceof Error
           ? new CopilotTurnError(err.message)
           : new CopilotTurnError(String(err));
@@ -167,7 +246,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     } finally {
       if (typeof unsubscribe === 'function') unsubscribe();
       this._currentTurn = null;
-      this.setStatus(handle.current().status === 'error' ? 'error' : 'idle');
+      this.setStatus(handle.current().status === 'errored' ? 'error' : 'idle');
       this.processNextQueued();
     }
   }
@@ -183,7 +262,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         if (delta) {
           const snapshot: CopilotTurnSnapshot = { ...handle.current(), text: handle.current().text + delta };
           handle.push({ kind: 'output', delta, snapshot });
-          this.emit('output_delta', delta);
+          this.emit('text', delta);
         }
         // Some message_delta events also carry usage info
         if (event.usage) {

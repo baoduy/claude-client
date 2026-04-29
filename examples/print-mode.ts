@@ -22,8 +22,8 @@ console.log('Session ID:', client.sessionId);
 console.log('');
 
 // Stream output events
-client.on('text_delta', (text) => process.stdout.write(text));
-client.on('thinking_delta', (thinking) => {
+client.on('text', (text) => process.stdout.write(text));
+client.on('reasoning', (thinking) => {
   process.stderr.write(`[Thinking] ${thinking}`);
 });
 

@@ -16,6 +16,23 @@ export { CopilotClient } from './copilot/index.js';
 export type { AICliClient } from './ai-cli-client.js';
 export { createAICliClient, type AICliClientConfig } from './factory.js';
 
+// Unified surface types and errors (Phase 4)
+export type {
+  UnifiedStatus,
+  TurnSnapshot,
+  TurnToolUse,
+  TurnToolResult,
+  SendInput,
+  ContentBlock,
+  ImageSource,
+  AICliCapabilities,
+  PermissionMode,
+  SupportedModelsResponse,
+  UnifiedEventMap,
+  UnifiedEventName,
+} from './unified/index.js';
+export { UnsupportedContentError } from './unified/index.js';
+
 // PTY transport (Phase 3)
 export type {
   PtyClient,
