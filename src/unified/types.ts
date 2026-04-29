@@ -124,3 +124,79 @@ export interface UnifiedMessage {
   readonly timestamp: number;
   readonly raw: UnifiedMessageRaw;
 }
+
+// ─── Phase 1.2 — Interactive approval shapes ──────────────────────────────
+
+export type PendingRequest =
+  | PermissionPendingRequest
+  | ElicitationPendingRequest
+  | UserInputPendingRequest;
+
+export interface PermissionPendingRequest {
+  readonly id: string;
+  readonly kind: 'permission';
+  readonly permissionKind:
+    | 'shell'
+    | 'write'
+    | 'mcp'
+    | 'read'
+    | 'url'
+    | 'custom-tool'
+    | 'memory'
+    | 'hook';
+  readonly message: string;
+  readonly toolCallId?: string;
+  readonly raw:
+    | { readonly provider: 'claude'; readonly payload: unknown }
+    | { readonly provider: 'copilot'; readonly payload: unknown };
+}
+
+export interface ElicitationPendingRequest {
+  readonly id: string;
+  readonly kind: 'elicitation';
+  readonly message: string;
+  readonly schema?: unknown;
+  readonly raw:
+    | { readonly provider: 'claude'; readonly payload: unknown }
+    | { readonly provider: 'copilot'; readonly payload: unknown };
+}
+
+export interface UserInputPendingRequest {
+  readonly id: string;
+  readonly kind: 'question';
+  readonly question: string;
+  readonly choices?: readonly string[];
+  readonly allowFreeform: boolean;
+  readonly raw:
+    | { readonly provider: 'claude'; readonly payload: unknown }
+    | { readonly provider: 'copilot'; readonly payload: unknown };
+}
+
+export type ApproveDecision =
+  | { readonly scope: 'once' }
+  | { readonly scope: 'session' }
+  | { readonly scope: 'location'; readonly locationKey: string };
+
+export type QuestionResponse =
+  | { readonly kind: 'text'; readonly answer: string }
+  | { readonly kind: 'choice'; readonly value: string }
+  | {
+      readonly kind: 'form';
+      readonly values: Record<string, string | number | boolean | string[]>;
+    }
+  | { readonly kind: 'cancel' };
+
+export interface DetailedStatus {
+  readonly status: UnifiedStatus;
+  readonly phase: string;
+  readonly pendingRequestCount: number;
+  readonly permissionMode?: PermissionMode;
+  readonly raw:
+    | { readonly provider: 'claude'; readonly payload: unknown }
+    | { readonly provider: 'copilot'; readonly payload: unknown };
+}
+
+export interface PendingAction {
+  readonly id: string;
+  readonly kind: 'permission' | 'elicitation' | 'question';
+}

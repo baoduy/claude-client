@@ -12,6 +12,14 @@ export type {
   SupportedModelsResponse,
   UnifiedMessage,
   UnifiedMessageRaw,
+  PendingRequest,
+  PermissionPendingRequest,
+  ElicitationPendingRequest,
+  UserInputPendingRequest,
+  ApproveDecision,
+  QuestionResponse,
+  DetailedStatus,
+  PendingAction,
 } from './types.js';
 
 export { translateLegacyPermissionMode } from './types.js';
