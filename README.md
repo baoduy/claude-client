@@ -18,6 +18,39 @@ npm install @baoduy2412/ai-cli-client
 
 Both `ClaudeClient` and `CopilotClient` share a consistent surface. `client.send(prompt)` returns a `TurnHandle` with a `.updates()` async iterator for streamed progress and a `.done` Promise that resolves to the final snapshot. Both clients are also event emitters — use `.on(event, handler)` for lower-level protocol events. `client.getHistory()` returns completed turn snapshots for the session. Provider-specific extensions (e.g. `getOpenRequests()` on Claude) are documented in the per-provider sections below.
 
+## Unified API
+
+If you want provider-agnostic code, target the `AICliClient` interface and construct clients via the `createAICliClient` factory.
+
+```ts
+import {
+  createAICliClient,
+  type AICliClient,
+  type AICliClientConfig,
+} from '@baoduy2412/ai-cli-client';
+
+const config: AICliClientConfig = {
+  provider: 'claude', // or 'copilot'
+  cwd: process.cwd(),
+};
+
+const client: AICliClient = await createAICliClient(config);
+
+await client.sendMessage('Hello.');
+await client.close();
+```
+
+The `AICliClient` interface only declares the surface both providers support identically. Provider-specific methods (Claude's `approveRequest`, `answerQuestion`, etc.) are on the concrete classes — see [`docs/provider-capabilities.md`](./docs/provider-capabilities.md) for the full divergence matrix.
+
+**Auto-start trade-off.** `createAICliClient(config)` returns a *started* client. If you need to attach event listeners *before* startup events fire (e.g. Copilot's `ready` event), construct the concrete class directly:
+
+```ts
+import { CopilotClient } from '@baoduy2412/ai-cli-client';
+const client = new CopilotClient({ cwd: process.cwd() });
+client.on('ready', () => console.log('ready'));
+await client.start();
+```
+
 ## Claude
 
 `ClaudeClient.init(config)` starts a persistent stream-json process and returns a fully-started client. All structured methods live directly on the returned instance.
