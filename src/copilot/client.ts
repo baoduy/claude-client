@@ -13,7 +13,7 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities, SendInput } from '../unified/index.js';
+import type { AICliCapabilities, SendInput, SupportedModelsResponse } from '../unified/index.js';
 import { sendInputToCopilotMessage, type CopilotMessage } from './attachments.js';
 
 export interface CopilotClientInternals {
@@ -43,7 +43,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     setModel: true,
     setPermissionMode: false,
     setMaxThinkingTokens: false,
-    listSupportedModels: false,
+    listSupportedModels: true,
     getMessages: false,
     hooks: false,
     mcp: false,
@@ -305,6 +305,19 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     const session = (this.transport as any).session;
     if (!session) throw new Error('Copilot session not started — call start() first.');
     await session.setModel(model);
+  }
+
+  async listSupportedModels(_timeout?: number): Promise<SupportedModelsResponse> {
+    const ghClient = (this.transport as any).gh;
+    if (!ghClient) throw new Error('Copilot client not started — call start() first.');
+    const models: Array<{ modelId?: string; id?: string; name?: string; displayName?: string }> =
+      await ghClient.listModels();
+    return {
+      models: models.map(m => ({
+        id: m.modelId ?? m.id ?? '',
+        displayName: m.displayName ?? m.name,
+      })),
+    };
   }
 
   async interrupt(): Promise<void> {
