@@ -169,6 +169,9 @@ export class CopilotTransport {
     // Lifecycle hooks — forwarded verbatim to the SDK when provided.
     if (c.hooks) cfg.hooks = c.hooks;
 
+    // MCP servers — forwarded verbatim to the SDK when provided.
+    if (c.mcpServers) cfg.mcpServers = c.mcpServers;
+
     return cfg;
   }
 

@@ -46,7 +46,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     listSupportedModels: true,
     getMessages: true,
     hooks: true,
-    mcp: false,
+    mcp: true,
   };
 
   private readonly config: CopilotClientConfig;

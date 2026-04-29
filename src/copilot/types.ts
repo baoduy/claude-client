@@ -1,7 +1,7 @@
 import type {
   TurnSnapshot,
 } from '../unified/types.js';
-import type { SessionHooks } from './sdk.js';
+import type { SessionHooks, MCPServerConfig } from './sdk.js';
 
 /** Configuration for CopilotClient. Matches the spec §5 verbatim. */
 export interface CopilotClientConfig {
@@ -48,6 +48,11 @@ export interface CopilotClientConfig {
 
   // Lifecycle hooks — passed straight to SDK createSession
   hooks?: SessionHooks;
+
+  // MCP servers — passed straight to SDK createSession.
+  // Supports both stdio (`command`/`args`) and http/sse (`type: 'http'`, `url`)
+  // variants per the SDK's MCPServerConfig union.
+  mcpServers?: Record<string, MCPServerConfig>;
 }
 
 /**

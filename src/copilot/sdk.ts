@@ -141,6 +141,11 @@ export type {
   // BYOK / provider
   ProviderConfig,
 
+  // MCP server configuration (forwarded to SessionConfig.mcpServers)
+  MCPServerConfig,
+  MCPStdioServerConfig,
+  MCPHTTPServerConfig,
+
   // Tools
   Tool,
   ToolHandler,
