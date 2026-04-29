@@ -39,6 +39,7 @@ import {
     TurnHandle
 } from './turn-handle.js';
 import type { AICliClient } from '../ai-cli-client.js';
+import type { AICliCapabilities } from '../unified/index.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -417,6 +418,13 @@ type _InternalOpenRequest = _InternalQuestionRequest | _InternalToolRequest | _I
 
 export class ClaudeClient extends EventEmitter implements ITurnSession, AICliClient {
     readonly provider = 'claude' as const;
+    readonly capabilities: AICliCapabilities = {
+        richContent: true,
+        setModel: true,
+        setPermissionMode: true,
+        setMaxThinkingTokens: true,
+        listSupportedModels: true,
+    };
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
     private readonly transport = new ClaudeTransport();
