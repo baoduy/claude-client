@@ -43,8 +43,10 @@ test('ClaudeClient streams updates without polling', async () => {
     uuid: 'stream-1',
     event: { type: 'message_start', message: {} }
   });
-  client.emit('text_accumulated', 'Hello');
-  client.emit('thinking_accumulated', 'Thinking');
+  client._accumulatedText = 'Hello';
+  client.emit('text', 'Hello');
+  client._accumulatedThinking = 'Thinking';
+  client.emit('reasoning', 'Thinking');
 
   const snapshot = turn.current();
   assert.equal(snapshot.status, 'running');

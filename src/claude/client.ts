@@ -376,11 +376,10 @@ export declare interface ClaudeClient {
     on(event: 'task_message', listener: (event: TaskMessageEvent) => void): this;
     on(event: 'message', listener: (message: AssistantMessage) => void): this;
     on(event: 'stream_event', listener: (event: StreamEventMessage) => void): this;
-    on(event: 'text_delta', listener: (text: string) => void): this;
-    on(event: 'thinking_delta', listener: (thinking: string) => void): this;
-    on(event: 'text_accumulated', listener: (text: string) => void): this;
-    on(event: 'thinking_accumulated', listener: (thinking: string) => void): this;
-    on(event: 'tool_use', listener: (tool: any) => void): this;
+    on(event: 'text', listener: (chunk: string) => void): this;
+    on(event: 'text_done', listener: (text: string) => void): this;
+    on(event: 'reasoning', listener: (chunk: string) => void): this;
+    on(event: 'reasoning_done', listener: (text: string) => void): this;
     on(event: 'tool_use_start', listener: (tool: ToolUseStartEvent) => void): this;
     on(event: 'tool_result', listener: (result: ToolResultEvent) => void): this;
     on(event: 'control_request', listener: (request: ControlRequestMessage) => void): this;
@@ -1444,9 +1443,18 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 // Update status and process queue
                 this._isProcessingMessage = false;
                 this.setStatus(resMessage.is_error ? 'error' : 'idle');
-                
+
+                // Fire turn-end "done" events before result so consumers can
+                // capture the final accumulated text/reasoning in turn order.
+                if (this._accumulatedText) {
+                    this.emit('text_done', this._accumulatedText);
+                }
+                if (this._accumulatedThinking) {
+                    this.emit('reasoning_done', this._accumulatedThinking);
+                }
+
                 this.emit('result', resMessage);
-                
+
                 // Process next queued message if any
                 this.processNextQueuedMessage();
                 break;
@@ -1476,12 +1484,10 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 const delta = event.delta as ContentDelta;
                 if (delta.type === 'text_delta' && delta.text) {
                     this._accumulatedText += delta.text;
-                    this.emit('text_delta', delta.text);  // Delta for backwards compat
-                    this.emit('text_accumulated', this._accumulatedText);  // Full accumulated
+                    this.emit('text', delta.text);
                 } else if (delta.type === 'thinking_delta' && delta.thinking) {
                     this._accumulatedThinking += delta.thinking;
-                    this.emit('thinking_delta', delta.thinking);  // Delta for backwards compat
-                    this.emit('thinking_accumulated', this._accumulatedThinking);  // Full accumulated
+                    this.emit('reasoning', delta.thinking);
                 } else if (delta.type === 'input_json_delta' && delta.partial_json) {
                     // Accumulate tool input JSON
                     if (this._currentToolBlock) {
@@ -1655,12 +1661,14 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
             this._scHandleStreamEvent(turn, message);
         });
 
-        this.on('text_accumulated', (text) => {
-            this._scActiveTurn?.updateOutput('text', text);
+        // Internal: keep the structured-client snapshot's text/thinking in
+        // sync with the running accumulators on every chunk.
+        this.on('text', () => {
+            this._scActiveTurn?.updateOutput('text', this._accumulatedText);
         });
 
-        this.on('thinking_accumulated', (thinking) => {
-            this._scActiveTurn?.updateOutput('thinking', thinking);
+        this.on('reasoning', () => {
+            this._scActiveTurn?.updateOutput('thinking', this._accumulatedThinking);
         });
 
         this.on('usage_update', (usage) => {
