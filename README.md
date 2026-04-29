@@ -203,6 +203,40 @@ See [`examples/`](./examples) for working scripts:
 - **(Both)** Enable `debug: true` and provide a `debugLogger` callback to inspect protocol events in detail.
 - **(Copilot)** `CopilotFeatureUnsupportedError` at startup means a config field is not yet supported by the SDK preview — see the note in the Copilot section above.
 
+## PTY Transport
+
+For daemon-layer use cases (typically an Electron main process), spawn
+the underlying CLI in a real OS-level pseudo-terminal and forward raw
+bytes to a renderer of your choice. The library does not render — that's
+the consumer's job (xterm.js, custom TUI, anything).
+
+```ts
+import { createPtyClient } from '@baoduy2412/ai-cli-client';
+
+const pty = await createPtyClient({
+  provider: 'claude',         // or 'copilot'
+  cwd: process.cwd(),
+  cols: 120, rows: 30,
+});
+
+pty.on('data', bytes => process.stdout.write(bytes));
+process.stdin.on('data', chunk => pty.write(chunk));
+process.stdout.on('resize', () => pty.resize(process.stdout.columns!, process.stdout.rows!));
+```
+
+PTY mode requires `node-pty` as an **optional peer dependency**:
+
+```bash
+npm install node-pty
+```
+
+For Electron, rebuild against your Electron version:
+`npx @electron/rebuild`.
+
+See [`docs/pty-transport.md`](./docs/pty-transport.md) for the full
+guide, the [Electron IPC pattern](./examples/pty/electron-main.ts), and
+configuration / troubleshooting tables.
+
 ## Versioning
 
 This package uses independent semver releases.
