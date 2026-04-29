@@ -9,6 +9,7 @@ const FLAGS = [
   'setPermissionMode',
   'setMaxThinkingTokens',
   'listSupportedModels',
+  'getMessages',
 ];
 
 test('Claude capabilities are all true', () => {

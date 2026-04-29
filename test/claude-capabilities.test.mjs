@@ -10,4 +10,5 @@ test('ClaudeClient.capabilities reports all features supported', () => {
   assert.equal(client.capabilities.setPermissionMode, true);
   assert.equal(client.capabilities.setMaxThinkingTokens, true);
   assert.equal(client.capabilities.listSupportedModels, true);
+  assert.equal(client.capabilities.getMessages, true);
 });

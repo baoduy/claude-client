@@ -52,6 +52,7 @@ const optionalMethods = [
   'setPermissionMode',
   'setMaxThinkingTokens',
   'listSupportedModels',
+  'getMessages',
 ];
 
 test('factory-produced Claude client exposes the AICliClient surface', async () => {

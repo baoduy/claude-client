@@ -45,6 +45,7 @@ import type {
     TurnToolUse as UnifiedTurnToolUse,
     TurnToolResult as UnifiedTurnToolResult,
     UnifiedStatus,
+    UnifiedMessage,
 } from '../unified/index.js';
 import type {
     ClaudeSendInput,
@@ -429,7 +430,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
         setPermissionMode: true,
         setMaxThinkingTokens: true,
         listSupportedModels: true,
-        getMessages: false,    // wired in later task
+        getMessages: true,
         hooks: true,
         mcp: true,
     };
@@ -1794,6 +1795,56 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 return snapshot.status === 'completed' || snapshot.status === 'error';
             })
             .map((turn) => turn.current());
+    }
+
+    /**
+     * Project completed turn history into a flat `UnifiedMessage[]`.
+     *
+     * Per Claude `TurnSnapshot`:
+     * - one `assistant` message if `text` is non-empty (with `reasoning`
+     *   carrying the Claude `thinking` field, when present)
+     * - one `tool` message per `toolUses[i]`
+     * - one `tool` message per `toolResults[i]`
+     *
+     * The full `TurnSnapshot` is preserved under `.raw.event` so callers
+     * can narrow by provider and access Claude-specific fields.
+     */
+    async getMessages(): Promise<UnifiedMessage[]> {
+        const detailed = this.getHistoryDetailed();
+        const out: UnifiedMessage[] = [];
+        for (const turn of detailed) {
+            const startedAt = Date.parse(turn.startedAt);
+            const completedAt = turn.completedAt ? Date.parse(turn.completedAt) : startedAt;
+            if (turn.text) {
+                out.push({
+                    id: `${turn.id}#assistant`,
+                    role: 'assistant',
+                    text: turn.text,
+                    ...(turn.thinking ? { reasoning: turn.thinking } : {}),
+                    timestamp: startedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+            for (const t of turn.toolUses ?? []) {
+                out.push({
+                    id: t.id,
+                    role: 'tool',
+                    toolUse: { id: t.id, name: t.name, input: t.input },
+                    timestamp: startedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+            for (const r of turn.toolResults ?? []) {
+                out.push({
+                    id: `${r.toolUseId}#result`,
+                    role: 'tool',
+                    toolResult: { toolUseId: r.toolUseId, content: r.content, isError: r.isError },
+                    timestamp: completedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+        }
+        return out;
     }
 
     /**
