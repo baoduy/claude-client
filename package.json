@@ -101,6 +101,7 @@
     "integration:structured": "npm run build && node ./scripts/integration-structured-smoke.mjs",
     "integration:structured-multipass": "npm run build && node ./scripts/integration-structured-multipass.mjs",
     "integration:pty": "npm run build && node ./scripts/integration-pty.mjs",
+    "integration:cross-provider": "npm run build && node ./scripts/integration-cross-provider.mjs",
     "integration": "npm run integration:worktree && npm run integration:tmux",
     "prepack": "npm run build"
   },
