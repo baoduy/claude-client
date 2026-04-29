@@ -97,6 +97,26 @@ type-safe `on()`.
 | `printMode`         |   ✅   |   ❌    | Claude one-shot mode                           |
 | `sessionId`         |   ✅   |   ❌    | Claude session resume                          |
 
+## PTY transport
+
+PTY transport is exposed via the separate `PtyClient` interface
+(`createPtyClient` factory) — **not** through `AICliClient`. Both
+providers are supported; Copilot bypasses `@github/copilot-sdk` and
+spawns the `copilot` binary directly.
+
+| Capability | Claude | Copilot |
+| ---------- | :----: | :-----: |
+| `createPtyClient({ provider, ... })` | ✅ | ✅ |
+| Mapped flags: `model` | ✅ | ✅ |
+| Mapped flags: `permissionMode` | ✅ | ❌ (Claude-specific) |
+| Mapped flags: `allowTools`/`denyTools`/`addDir`/`allowAll*`/`noAskUser` | ❌ | ✅ |
+| Structured methods (`send`, `getHistory`, etc.) in PTY mode | ❌ | ❌ |
+| BYOK in PTY mode | ❌ | ❌ — use `CopilotClient` for BYOK |
+| Session resume in PTY mode | via `extraArgs: ['--resume', '<id>']` | via UI slash commands |
+
+Anything not mapped above is reachable via `extraArgs`. See
+[`docs/pty-transport.md`](./pty-transport.md) for the full guide.
+
 ## Future work
 
 - **`getHistory()` normalization.** Add to the `AICliClient` interface once
