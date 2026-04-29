@@ -387,7 +387,7 @@ export declare interface ClaudeClient {
     on(event: 'control_response', listener: (response: ControlResponseEnvelope) => void): this;
     on(event: 'user_message', listener: (message: UserMessage) => void): this;
     on(event: 'error', listener: (error: Error) => void): this;
-    on(event: 'exit', listener: (code: number | null) => void): this;
+    on(event: 'closed', listener: (exitCode: number | null) => void): this;
     on(event: 'result', listener: (result: ResultMessage) => void): this;
     on(event: 'usage_update', listener: (usage: Usage) => void): this;
     on(event: 'status_change', listener: (status: SessionStatus, pendingAction: PendingAction | null) => void): this;
@@ -675,7 +675,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 });
 
                 this.process.on('exit', (code) => {
-                    this.emit('exit', code);
+                    this.emit('closed', code);
                     this.logDebug(`Process exited with code: ${code}`);
                     this.process = null;
                     this.readyEmitted = false;
@@ -784,7 +784,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
                 });
 
                 this.process.on('exit', (code) => {
-                    this.emit('exit', code);
+                    this.emit('closed', code);
                     this.logDebug(`Process exited with code: ${code}`);
                     this.process = null;
 
