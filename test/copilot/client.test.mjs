@@ -97,13 +97,13 @@ test('CopilotClient emits client-level events that mirror SDK events', async () 
   await client.start();
 
   const captured = [];
-  client.on('output_delta', d => captured.push(['output_delta', d]));
-  client.on('result',       s => captured.push(['result', s.text]));
+  client.on('text',   d => captured.push(['text', d]));
+  client.on('result', s => captured.push(['result', s.text]));
 
   const turn = client.send('hi');
   await turn.done;
 
-  assert.equal(captured.filter(([n]) => n === 'output_delta').length, 2);
+  assert.equal(captured.filter(([n]) => n === 'text').length, 2);
   assert.equal(captured.filter(([n]) => n === 'result').length, 1);
   await client.close();
 });

@@ -23,8 +23,11 @@ export interface CopilotClientInternals {
 
 export declare interface CopilotClient {
   on(event: 'ready',           listener: () => void): this;
-  on(event: 'output_delta',    listener: (delta: string) => void): this;
-  on(event: 'reasoning_delta', listener: (delta: string) => void): this;
+  on(event: 'text',            listener: (chunk: string) => void): this;
+  on(event: 'text_done',       listener: (text: string) => void): this;
+  on(event: 'reasoning',       listener: (chunk: string) => void): this;
+  on(event: 'reasoning_done',  listener: (text: string) => void): this;
+  on(event: 'closed',          listener: (exitCode: number | null) => void): this;
   on(event: 'tool_use_start',  listener: (tool: { id: string; name: string; input: Record<string, any> }) => void): this;
   on(event: 'tool_result',     listener: (res: { toolUseId: string; content: string; isError: boolean }) => void): this;
   on(event: 'usage_update',    listener: (u: { inputTokens: number; outputTokens: number }) => void): this;
@@ -205,6 +208,17 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         completedAt: Date.now(),
       };
       handle.complete(finalSnapshot);
+
+      // Fire turn-end "done" events before result so consumers see the
+      // final accumulated text/reasoning in turn order. Skip when nothing
+      // was emitted to avoid empty-string false-positives.
+      if (finalSnapshot.text) {
+        this.emit('text_done', finalSnapshot.text);
+      }
+      if (finalSnapshot.reasoning) {
+        this.emit('reasoning_done', finalSnapshot.reasoning);
+      }
+
       this.emit('result', finalSnapshot);
       this._history.push(finalSnapshot);
     } catch (err: any) {
@@ -236,7 +250,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         if (delta) {
           const snapshot: CopilotTurnSnapshot = { ...handle.current(), text: handle.current().text + delta };
           handle.push({ kind: 'output', delta, snapshot });
-          this.emit('output_delta', delta);
+          this.emit('text', delta);
         }
         // Some message_delta events also carry usage info
         if (event.usage) {
