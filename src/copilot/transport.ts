@@ -65,7 +65,8 @@ export class CopilotTransport {
     if (c.transport === 'pty') {
       throw new CopilotFeatureUnsupportedError(
         'transport',
-        'PTY transport is reserved for Phase 2 and not yet implemented.',
+        "CopilotClient does not support transport: 'pty'. " +
+        "Use createPtyClient({ provider: 'copilot', ... }) from '@baoduy2412/ai-cli-client' instead.",
       );
     }
 
