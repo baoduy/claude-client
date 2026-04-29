@@ -199,8 +199,8 @@ test('ClaudeClient attaches to an existing waiting turn and answers questions', 
 
   const [request] = client.getOpenRequests();
   assert.equal(request.kind, 'question');
-  assert.equal(client.getCurrentTurn()?.metadata?.synthetic, true);
-  assert.equal(client.getCurrentTurn()?.metadata?.resumed, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.synthetic, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.resumed, true);
 
   await client.answerQuestion(request.id, 'Yes');
 

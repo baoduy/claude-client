@@ -39,7 +39,13 @@ import {
     TurnHandle
 } from './turn-handle.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities, UnifiedStatus } from '../unified/index.js';
+import type {
+    AICliCapabilities,
+    TurnSnapshot as UnifiedTurnSnapshot,
+    TurnToolUse as UnifiedTurnToolUse,
+    TurnToolResult as UnifiedTurnToolResult,
+    UnifiedStatus,
+} from '../unified/index.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -1736,22 +1742,98 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Return a snapshot of the currently active turn, or null.
+     * Return the current turn as a unified `TurnSnapshot`, or `null`.
+     *
+     * The unified shape collapses Claude-specific richness; use
+     * `getCurrentTurnDetailed()` when you need the full Claude
+     * `TurnSnapshot` (with `thinking`, `currentMessage`, `metadata`, etc.).
      */
-    getCurrentTurn(): TurnSnapshot | null {
+    getCurrentTurn(): UnifiedTurnSnapshot | null {
+        const handle = this._scActiveTurn;
+        return handle ? this._toUnifiedSnapshot(handle.current()) : null;
+    }
+
+    /**
+     * Return unified `TurnSnapshot[]` for all completed and errored turns.
+     * Use `getHistoryDetailed()` for the rich Claude-specific snapshots.
+     */
+    getHistory(): UnifiedTurnSnapshot[] {
+        return this._scTurns
+            .filter((turn) => {
+                const snapshot = turn.current();
+                return snapshot.status === 'completed' || snapshot.status === 'error';
+            })
+            .map((turn) => this._toUnifiedSnapshot(turn.current()));
+    }
+
+    /**
+     * Return a snapshot of the currently active turn (rich Claude shape), or null.
+     */
+    getCurrentTurnDetailed(): TurnSnapshot | null {
         return this._scActiveTurn ? this._scActiveTurn.current() : null;
     }
 
     /**
-     * Return snapshots for all completed/errored turns.
+     * Return rich Claude snapshots for all completed/errored turns.
      */
-    getHistory(): TurnSnapshot[] {
+    getHistoryDetailed(): TurnSnapshot[] {
         return this._scTurns
             .filter((turn) => {
                 const snapshot = turn.current();
                 return snapshot.status === 'completed' || snapshot.status === 'error';
             })
             .map((turn) => turn.current());
+    }
+
+    /**
+     * Adapt a Claude `TurnSnapshot` to the unified `TurnSnapshot` shape.
+     * - `thinking` aliases to `reasoning`
+     * - `usage` is renamed (input_tokens → inputTokens, output_tokens → outputTokens)
+     * - `startedAt`/`completedAt` ISO strings convert to epoch ms
+     * - 5-state Claude `TurnStatus` collapses to 3-state `'pending'|'completed'|'errored'`
+     * - `result.error` populates `error` when present
+     */
+    private _toUnifiedSnapshot(s: TurnSnapshot): UnifiedTurnSnapshot {
+        const status: 'pending' | 'completed' | 'errored' =
+            s.status === 'completed' ? 'completed'
+            : s.status === 'error' ? 'errored'
+            : 'pending';
+
+        const toolUses: UnifiedTurnToolUse[] = s.toolUses.map((t) => ({
+            id: t.id,
+            name: t.name,
+            input: t.input,
+        }));
+
+        const toolResults: UnifiedTurnToolResult[] = s.toolResults.map((r) => ({
+            toolUseId: r.toolUseId,
+            content: r.content,
+            isError: r.isError,
+        }));
+
+        const usage = s.usage
+            ? { inputTokens: s.usage.input_tokens, outputTokens: s.usage.output_tokens }
+            : undefined;
+
+        const error = s.result?.isError
+            ? {
+                message: s.result.error ?? s.result.result ?? 'Unknown error',
+                code: s.result.subtype,
+            }
+            : undefined;
+
+        return {
+            id: s.id,
+            status,
+            text: s.text,
+            reasoning: s.thinking || undefined,
+            toolUses,
+            toolResults,
+            usage,
+            error,
+            startedAt: Date.parse(s.startedAt),
+            completedAt: s.completedAt ? Date.parse(s.completedAt) : undefined,
+        };
     }
 
     /**
