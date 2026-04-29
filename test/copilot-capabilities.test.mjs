@@ -7,16 +7,18 @@ test('CopilotClient.capabilities reports rich content support and Group E featur
 
   // Task A4 widened richContent to 'full' (text + attachments via translator).
   assert.equal(client.capabilities.richContent, 'full');
-  assert.equal(client.capabilities.setModel, false);
+  // Task A5 flipped setModel to true (wraps session.setModel).
+  assert.equal(client.capabilities.setModel, true);
   assert.equal(client.capabilities.setPermissionMode, false);
   assert.equal(client.capabilities.setMaxThinkingTokens, false);
   assert.equal(client.capabilities.listSupportedModels, false);
 });
 
-test('CopilotClient does NOT expose Group E methods', () => {
+test('CopilotClient exposes setModel but not other Group E methods', () => {
   const client = new CopilotClient({ cwd: '/tmp' });
 
-  assert.equal(client.setModel, undefined);
+  // Task A5: setModel is now implemented.
+  assert.equal(typeof client.setModel, 'function');
   assert.equal(client.setPermissionMode, undefined);
   assert.equal(client.setMaxThinkingTokens, undefined);
   assert.equal(client.listSupportedModels, undefined);

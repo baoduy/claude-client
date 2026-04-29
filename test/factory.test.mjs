@@ -48,7 +48,8 @@ test('createAICliClient returns a client with capabilities', async () => {
   await withCopilotStartStub(async () => {
     const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
     assert.ok(client.capabilities);
-    assert.equal(client.capabilities.setModel, false);
+    // Task A5: Copilot now supports setModel.
+    assert.equal(client.capabilities.setModel, true);
   });
 });
 

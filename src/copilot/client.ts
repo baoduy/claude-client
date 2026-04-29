@@ -40,7 +40,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   readonly provider = 'copilot' as const;
   readonly capabilities: AICliCapabilities = {
     richContent: 'full',
-    setModel: false,
+    setModel: true,
     setPermissionMode: false,
     setMaxThinkingTokens: false,
     listSupportedModels: false,
@@ -299,6 +299,12 @@ export class CopilotClient extends EventEmitter implements AICliClient {
         this.emit('error', err as Error);
       }
     }
+  }
+
+  async setModel(model: string): Promise<void> {
+    const session = (this.transport as any).session;
+    if (!session) throw new Error('Copilot session not started — call start() first.');
+    await session.setModel(model);
   }
 
   async interrupt(): Promise<void> {

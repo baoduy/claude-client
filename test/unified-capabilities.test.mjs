@@ -22,12 +22,16 @@ test('Claude capabilities are all true', () => {
   }
 });
 
-test('Copilot Group E capabilities are all false; richContent is "full" after Task A4', () => {
+test('Copilot capabilities reflect Task A4/A5 progress (richContent: "full", setModel: true)', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
+  // Group E flags expected to be true after each gap-fill task.
+  const trueFlags = new Set(['setModel']); // Task A5
   for (const f of FLAGS) {
     if (f === 'richContent') {
       // Task A4 widened richContent to 'full' once attachments were wired in.
       assert.equal(c.capabilities[f], 'full', `Copilot.capabilities.${f} should be 'full'`);
+    } else if (trueFlags.has(f)) {
+      assert.equal(c.capabilities[f], true, `Copilot.capabilities.${f} should be true`);
     } else {
       assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
     }
@@ -51,9 +55,15 @@ test('Claude provides the methods its capabilities advertise', () => {
   }
 });
 
-test('Copilot omits the methods its capabilities decline', () => {
+test('Copilot exposes only the optional methods its capabilities advertise', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
+  // Methods Copilot now implements (track Group E gap-fill progress).
+  const presentMethods = new Set(['setModel']); // Task A5
   for (const f of FLAGS.filter(x => x !== 'richContent')) {
-    assert.equal(c[f], undefined, `Copilot.${f} should be undefined`);
+    if (presentMethods.has(f)) {
+      assert.equal(typeof c[f], 'function', `Copilot.${f} should be a method`);
+    } else {
+      assert.equal(c[f], undefined, `Copilot.${f} should be undefined`);
+    }
   }
 });
