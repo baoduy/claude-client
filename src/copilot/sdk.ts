@@ -93,6 +93,18 @@ import type { SessionConfig as GhSessionConfig } from "@github/copilot-sdk";
  */
 export type SessionHooks = NonNullable<GhSessionConfig["hooks"]>;
 
+/**
+ * User-input request types. The SDK 0.3.0 declares `UserInputRequest`,
+ * `UserInputResponse`, and `UserInputHandler` in `types.d.ts` but does not
+ * re-export them through its public barrel (`index.d.ts`). They leak
+ * transitively via `SessionConfig.onUserInputRequest`, so we derive them
+ * from that handler signature using the same indirection pattern as
+ * `SessionHooks`.
+ */
+export type UserInputHandler = NonNullable<GhSessionConfig["onUserInputRequest"]>;
+export type UserInputRequest = Parameters<UserInputHandler>[0];
+export type UserInputResponse = Awaited<ReturnType<UserInputHandler>>;
+
 export type {
   // Core types
   CopilotClientOptions,
@@ -137,6 +149,11 @@ export type {
   PermissionHandler,
   PermissionRequest,
   PermissionRequestResult,
+
+  // Elicitation (directly re-exported from SDK index)
+  ElicitationContext,
+  ElicitationResult,
+  ElicitationHandler,
 
   // BYOK / provider
   ProviderConfig,
