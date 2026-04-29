@@ -1,6 +1,7 @@
 import type {
   TurnSnapshot,
 } from '../unified/types.js';
+import type { SessionHooks } from './sdk.js';
 
 /** Configuration for CopilotClient. Matches the spec §5 verbatim. */
 export interface CopilotClientConfig {
@@ -44,6 +45,9 @@ export interface CopilotClientConfig {
 
   // Reserved for Phase 2; throws if used in Phase 1
   transport?: 'programmatic' | 'pty';
+
+  // Lifecycle hooks — passed straight to SDK createSession
+  hooks?: SessionHooks;
 }
 
 /**

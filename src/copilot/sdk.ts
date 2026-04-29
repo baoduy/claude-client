@@ -79,6 +79,19 @@ import {
   CopilotSession as GhCopilotSession,
   approveAll as ghApproveAll,
 } from "@github/copilot-sdk";
+import type { SessionConfig as GhSessionConfig } from "@github/copilot-sdk";
+
+/**
+ * Configuration for session lifecycle hooks. Forwarded straight to the SDK
+ * via `SessionConfig.hooks`. Derived from the SDK's own `SessionConfig` type
+ * because `@github/copilot-sdk` 0.3.0 declares `SessionHooks` internally
+ * but does not re-export the symbol from its barrel (it leaks transitively
+ * through `SessionConfig.hooks`).
+ *
+ * Shape (per SDK 0.3.0): { onPreToolUse?, onPostToolUse?,
+ * onUserPromptSubmitted?, onSessionStart?, onSessionEnd?, onErrorOccurred? }
+ */
+export type SessionHooks = NonNullable<GhSessionConfig["hooks"]>;
 
 export type {
   // Core types

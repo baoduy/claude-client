@@ -45,7 +45,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     setMaxThinkingTokens: false,
     listSupportedModels: true,
     getMessages: true,
-    hooks: false,
+    hooks: true,
     mcp: false,
   };
 

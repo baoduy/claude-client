@@ -166,6 +166,9 @@ export class CopilotTransport {
     if (c.availableTools && c.availableTools.length > 0) cfg.availableTools = c.availableTools;
     if (c.excludedTools  && c.excludedTools.length  > 0) cfg.excludedTools  = c.excludedTools;
 
+    // Lifecycle hooks — forwarded verbatim to the SDK when provided.
+    if (c.hooks) cfg.hooks = c.hooks;
+
     return cfg;
   }
 
