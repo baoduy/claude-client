@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.0 — 2026-04-29
+
+### Added
+- `AICliClient` interface — provider-agnostic, lowest-common-denominator
+  surface that both `ClaudeClient` and `CopilotClient` implement.
+- `createAICliClient(config)` factory — discriminated-union dispatch on
+  `config.provider`. Auto-starts the client.
+- `AICliClientConfig` discriminated-union type. Provider-specific fields
+  narrow automatically based on the `provider` discriminator.
+- `readonly provider` field on both `ClaudeClient` and `CopilotClient`
+  for runtime discrimination.
+- `ClaudeClient.close()` — async alias for `kill()`, satisfies the unified
+  interface's `close(): Promise<void>` requirement. `kill()` is preserved.
+- `docs/provider-capabilities.md` — capability matrix tracking what's on
+  the unified interface vs what's provider-specific.
+- README "Unified API" section.
+
+### Changed
+- `package.json` `test` script glob now matches both `test/*.test.mjs` and
+  `test/**/*.test.mjs` — required so root-level cross-provider tests
+  (`factory.test.mjs`, `unified-contract.test.mjs`, `barrel-exports.test.mjs`)
+  are discovered.
+
+### Notes
+- `getHistory()` is intentionally not yet on the unified interface —
+  `TurnSnapshot[]` (Claude) and `CopilotTurnSnapshot[]` (Copilot) need
+  to be reconciled first. Tracked in `docs/provider-capabilities.md`
+  as a Phase 2.x follow-up.
+- Strongly-typed events are not normalized in Phase 2. Use the concrete
+  class when you need type-safe `on()`.
+- PTY transport for Electron embedding remains Phase 3.
+
 ## 0.4.0 — 2026-04-28
 
 ### Added
