@@ -13,6 +13,7 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
+import type { AICliCapabilities } from '../unified/index.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -33,6 +34,13 @@ export declare interface CopilotClient {
 
 export class CopilotClient extends EventEmitter implements AICliClient {
   readonly provider = 'copilot' as const;
+  readonly capabilities: AICliCapabilities = {
+    richContent: false,
+    setModel: false,
+    setPermissionMode: false,
+    setMaxThinkingTokens: false,
+    listSupportedModels: false,
+  };
 
   private readonly config: CopilotClientConfig;
   private readonly transport: CopilotTransport;
