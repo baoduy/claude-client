@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CopilotClient } from '../dist/esm/copilot/client.js';
 
-test('CopilotClient.capabilities reports all features unsupported', () => {
+test('CopilotClient.capabilities reports rich content support and Group E features unsupported', () => {
   const client = new CopilotClient({ cwd: '/tmp' });
 
-  assert.equal(client.capabilities.richContent, 'none');
+  // Task A4 widened richContent to 'full' (text + attachments via translator).
+  assert.equal(client.capabilities.richContent, 'full');
   assert.equal(client.capabilities.setModel, false);
   assert.equal(client.capabilities.setPermissionMode, false);
   assert.equal(client.capabilities.setMaxThinkingTokens, false);

@@ -22,11 +22,12 @@ test('Claude capabilities are all true', () => {
   }
 });
 
-test('Copilot capabilities are all false', () => {
+test('Copilot Group E capabilities are all false; richContent is "full" after Task A4', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
   for (const f of FLAGS) {
     if (f === 'richContent') {
-      assert.equal(c.capabilities[f], 'none', `Copilot.capabilities.${f} should be 'none'`);
+      // Task A4 widened richContent to 'full' once attachments were wired in.
+      assert.equal(c.capabilities[f], 'full', `Copilot.capabilities.${f} should be 'full'`);
     } else {
       assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
     }

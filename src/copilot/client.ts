@@ -13,8 +13,8 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities, SendInput, ContentBlock } from '../unified/index.js';
-import { UnsupportedContentError } from '../unified/index.js';
+import type { AICliCapabilities, SendInput } from '../unified/index.js';
+import { sendInputToCopilotMessage, type CopilotMessage } from './attachments.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -39,7 +39,7 @@ export declare interface CopilotClient {
 export class CopilotClient extends EventEmitter implements AICliClient {
   readonly provider = 'copilot' as const;
   readonly capabilities: AICliCapabilities = {
-    richContent: 'none',
+    richContent: 'full',
     setModel: false,
     setPermissionMode: false,
     setMaxThinkingTokens: false,
@@ -55,7 +55,7 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   private _status: CopilotStatus = 'idle';
   private _currentTurn: CopilotTurnHandle | null = null;
   private _history: CopilotTurnSnapshot[] = [];
-  private _messageQueue: string[] = [];
+  private _messageQueue: CopilotMessage[] = [];
 
   constructor(config: CopilotClientConfig, internals?: CopilotClientInternals) {
     super();
@@ -114,42 +114,50 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   }
 
   /**
-   * Flatten a `SendInput` to a plain text prompt suitable for the Copilot SDK.
+   * Translate a `SendInput` to a Copilot SDK `MessageOptions`-compatible
+   * `CopilotMessage` ({ prompt, attachments? }).
    *
-   * - `string` — passed through unchanged.
-   * - `{ text }` — unwrapped.
-   * - `{ content: [...] }` — text blocks are concatenated; non-text blocks
-   *   (e.g. images) cause a synchronous `UnsupportedContentError` carrying
-   *   the offending block and its index. The pre-scan happens before any
-   *   side effects so callers can retry with corrected input.
-   *
-   * Empty `content: []` arrays throw as well — there is no text to send.
+   * The translator pre-scans synchronously and throws
+   * `UnsupportedContentError` (e.g., image with `url` source, empty
+   * `content: []`) before any side effects, so callers can retry with
+   * corrected input.
    */
-  private _flattenSendInput(input: SendInput): string {
-    if (typeof input === 'string') return input;
-    if ('text' in input) return input.text;
-
-    if (input.content.length === 0) {
-      throw new UnsupportedContentError(
-        'copilot',
-        { type: 'text', text: '' } as ContentBlock,
-        0,
-      );
-    }
-
-    let out = '';
-    for (let i = 0; i < input.content.length; i++) {
-      const block = input.content[i];
-      if (block.type !== 'text') {
-        throw new UnsupportedContentError('copilot', block, i);
-      }
-      out += block.text;
-    }
-    return out;
+  private _buildCopilotMessage(input: SendInput): CopilotMessage {
+    return sendInputToCopilotMessage(input);
   }
 
   send(input: SendInput): CopilotTurnHandle {
-    const prompt = this._flattenSendInput(input);
+    const message = this._buildCopilotMessage(input);
+    return this._dispatchMessage(message);
+  }
+
+  sendMessage(input: SendInput): Promise<void> {
+    // Note: not `async`. Validation runs synchronously so bad input throws
+    // before the Promise is constructed. send() pre-scans content blocks
+    // and throws UnsupportedContentError on unsupported input.
+    const turn = this.send(input);
+    return turn.done.then(() => undefined);
+  }
+
+  queueMessage(input: SendInput): void {
+    // Pre-scan synchronously so bad input fails fast even when queued.
+    const message = this._buildCopilotMessage(input);
+    if (this._status === 'running') {
+      this._messageQueue.push(message);
+    } else {
+      try {
+        this._dispatchMessage(message);
+      } catch (err) {
+        this.emit('error', err as Error);
+      }
+    }
+  }
+
+  /**
+   * Internal dispatcher: kick off a turn for a pre-built `CopilotMessage`.
+   * Shared by `send()` (front door) and the queue drain in `processNextQueued`.
+   */
+  private _dispatchMessage(message: CopilotMessage): CopilotTurnHandle {
     if (this._currentTurn) {
       throw new Error('A turn is already in flight. Call interrupt() first or await turn.done.');
     }
@@ -173,32 +181,14 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     this.setStatus('running');
 
     // Wire SDK events → handle updates + client events. Microtask so callers can subscribe first.
-    queueMicrotask(() => this.runTurn(prompt, handle).catch(err => {
+    queueMicrotask(() => this.runTurn(message, handle).catch(err => {
       this.emit('error', err);
     }));
 
     return handle;
   }
 
-  sendMessage(input: SendInput): Promise<void> {
-    // Note: not `async`. Validation runs synchronously so bad input throws
-    // before the Promise is constructed. send() pre-scans content blocks
-    // and throws UnsupportedContentError if any are not text.
-    const turn = this.send(input);
-    return turn.done.then(() => undefined);
-  }
-
-  queueMessage(input: SendInput): void {
-    // Pre-scan synchronously so bad input fails fast even when queued.
-    const prompt = this._flattenSendInput(input);
-    if (this._status === 'running') {
-      this._messageQueue.push(prompt);
-    } else {
-      this.sendMessage(prompt).catch(err => this.emit('error', err));
-    }
-  }
-
-  private async runTurn(prompt: string, handle: CopilotTurnHandle): Promise<void> {
+  private async runTurn(message: CopilotMessage, handle: CopilotTurnHandle): Promise<void> {
     const session = (this.transport as any).session;
     if (!session) {
       handle.fail(new CopilotTurnError('No active Copilot session — call start() first.'));
@@ -213,8 +203,9 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     });
 
     try {
-      // sendAndWait returns AssistantMessageEvent | undefined; content is at response.data.content
-      const response = await session.sendAndWait({ prompt });
+      // sendAndWait returns AssistantMessageEvent | undefined; content is at response.data.content.
+      // CopilotMessage is structurally compatible with MessageOptions ({ prompt, attachments? }).
+      const response = await session.sendAndWait(message);
       const finalText = handle.current().text || response?.data?.content || response?.content || '';
       const finalSnapshot: CopilotTurnSnapshot = {
         ...handle.current(),
@@ -302,7 +293,11 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     if (this._status !== 'idle') return;
     const next = this._messageQueue.shift();
     if (next !== undefined) {
-      void this.sendMessage(next).catch(err => this.emit('error', err));
+      try {
+        this._dispatchMessage(next);
+      } catch (err) {
+        this.emit('error', err as Error);
+      }
     }
   }
 
