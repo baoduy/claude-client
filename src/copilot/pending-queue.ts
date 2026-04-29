@@ -129,7 +129,7 @@ export class PendingRequestQueue {
           : `No pending permission request with id=${id}`,
       );
     }
-    const result: PermissionRequestResult = decisionToResult(decision);
+    const result: PermissionRequestResult = decisionToResult(decision, entry.request);
     entry.resolve(result);
     this.map.delete(id);
     this.deps.emit('pending_request_removed', { id });
@@ -210,14 +210,75 @@ function toPendingRequest(entry: Entry): PendingRequest {
   }
 }
 
-function decisionToResult(decision: ApproveDecision): PermissionRequestResult {
-  switch (decision.scope) {
-    case 'once':
-      return { kind: 'approve-once' } as PermissionRequestResult;
-    case 'session':
-      return { kind: 'approve-for-session' } as PermissionRequestResult;
-    case 'location':
-      return { kind: 'approve-for-location', locationKey: decision.locationKey } as PermissionRequestResult;
+function decisionToResult(decision: ApproveDecision, request: PermissionRequest): PermissionRequestResult {
+  if (decision.scope === 'once') {
+    return { kind: 'approve-once' } as PermissionRequestResult;
+  }
+
+  // session / location — synthesize the SDK-required `approval` payload
+  // from the original PermissionRequest. Best-effort: the SDK PermissionRequest
+  // only exposes { kind, toolCallId? } — for kinds that need additional
+  // context (mcp serverName, custom-tool toolName, shell commandIdentifiers)
+  // we synthesize a minimal valid shape. For kinds with no matching approval
+  // shape (url, hook), we degrade to approve-once with a console.warn.
+  const approval = synthesizeApproval(request);
+  if (!approval) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[copilot] Cannot synthesize approval for request kind '${request.kind}' at scope '${decision.scope}'; degrading to 'approve-once'.`,
+    );
+    return { kind: 'approve-once' } as PermissionRequestResult;
+  }
+
+  if (decision.scope === 'session') {
+    return { kind: 'approve-for-session', approval } as PermissionRequestResult;
+  }
+  // location
+  return {
+    kind: 'approve-for-location',
+    approval,
+    locationKey: decision.locationKey,
+  } as PermissionRequestResult;
+}
+
+/**
+ * Synthesize a minimal SDK `approval` payload from a `PermissionRequest`.
+ *
+ * The SDK's `PermissionRequest` carries only `kind` and an optional
+ * `toolCallId`, which is insufficient context for several approval shapes
+ * (e.g. `mcp` needs `serverName`, `custom-tool` needs `toolName`, `shell`
+ * needs `commandIdentifiers`). We synthesize a minimal valid shape where
+ * possible and return `null` to signal a graceful degrade-to-once.
+ *
+ * Known limitation: this is best-effort for Phase 1.2. For full fidelity,
+ * callers can install a user-provided `onPermissionRequest` handler that
+ * inspects the SDK-side full request and resolves with a complete approval.
+ */
+function synthesizeApproval(request: PermissionRequest): unknown | null {
+  switch (request.kind) {
+    case 'shell':
+      // `commandIdentifiers` is required; we have no commands, so synthesize
+      // an empty array. The SDK may treat this as "no commands approved" —
+      // user-provided handlers are recommended for shell session approvals.
+      return { kind: 'commands', commandIdentifiers: [] };
+    case 'read':
+      return { kind: 'read' };
+    case 'write':
+      return { kind: 'write' };
+    case 'memory':
+      return { kind: 'memory' };
+    case 'mcp':
+      // serverName/toolName not on PermissionRequest — degrade.
+      return null;
+    case 'custom-tool':
+      // toolName not on PermissionRequest — degrade.
+      return null;
+    case 'url':
+    case 'hook':
+      // No approval shape exists for these kinds; degrade.
+      return null;
+    default:
+      return null;
   }
 }
 

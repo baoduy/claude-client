@@ -4,6 +4,7 @@ import { CopilotTransport } from './transport.js';
 import { GhCopilotClient } from './sdk.js';
 import { CopilotTurnHandle } from './turn-handle.js';
 import { CopilotTurnError, CopilotInterruptedError } from './errors.js';
+import { PendingRequestQueue } from './pending-queue.js';
 import type {
   CopilotClientConfig,
   CopilotStatus,
@@ -13,7 +14,16 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities, SendInput, SupportedModelsResponse, UnifiedMessage } from '../unified/index.js';
+import type {
+  AICliCapabilities,
+  ApproveDecision,
+  PendingAction,
+  PendingRequest,
+  QuestionResponse,
+  SendInput,
+  SupportedModelsResponse,
+  UnifiedMessage,
+} from '../unified/index.js';
 import { sendInputToCopilotMessage, type CopilotMessage } from './attachments.js';
 
 export interface CopilotClientInternals {
@@ -49,13 +59,14 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     mcp: true,
     // Phase 1.2 additions — start as not-yet-implemented; B6/B7/B8 flip them.
     permissionModes: [] as const,        // populated in B7
-    interactiveApproval: false,          // flipped in B6
+    interactiveApproval: true,           // flipped in B6
     interruptTurnGranularity: 'session-only',
     detailedStatus: false,               // flipped in B7
   };
 
   private readonly config: CopilotClientConfig;
   private readonly transport: CopilotTransport;
+  private readonly queue: PendingRequestQueue;
 
   private _status: CopilotStatus = 'idle';
   private _currentTurn: CopilotTurnHandle | null = null;
@@ -66,7 +77,14 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   constructor(config: CopilotClientConfig, internals?: CopilotClientInternals) {
     super();
     this.config = config;
-    this.transport = new CopilotTransport({ config, GhClientCtor: internals?.GhClientCtor });
+    this.queue = new PendingRequestQueue({
+      emit: (name, payload) => this.emit(name as any, payload),
+    });
+    this.transport = new CopilotTransport({
+      config,
+      queue: this.queue,
+      GhClientCtor: internals?.GhClientCtor,
+    });
   }
 
   async start(): Promise<void> {
@@ -402,5 +420,39 @@ export class CopilotClient extends EventEmitter implements AICliClient {
       // swallow — the rejection below covers it
     }
     turn.fail(new CopilotInterruptedError());
+  }
+
+  // ─── Pull-style interactive approval API (Phase 1.2 — B6) ─────────────────
+
+  /** Snapshot of all currently open pending requests, in insertion order. */
+  getOpenRequests(): PendingRequest[] {
+    return this.queue.list();
+  }
+
+  /**
+   * Approve a pending permission request. Default scope is `'once'`; use
+   * `{ scope: 'session' }` or `{ scope: 'location', locationKey }` for
+   * broader approvals. Note: scope `'session'` and `'location'` rely on a
+   * best-effort synthesis of the SDK approval payload — see
+   * `pending-queue.ts#synthesizeApproval` for the matrix; unsupported kinds
+   * gracefully degrade to `'once'` with a console.warn.
+   */
+  async approveRequest(id: string, decision?: ApproveDecision): Promise<void> {
+    return this.queue.resolveApprove(id, decision);
+  }
+
+  /** Deny a pending permission request, optionally with feedback. */
+  async denyRequest(id: string, feedback?: string): Promise<void> {
+    return this.queue.resolveDeny(id, feedback);
+  }
+
+  /** Answer a pending elicitation or user-input question. */
+  async answerQuestion(id: string, response: QuestionResponse): Promise<void> {
+    return this.queue.resolveQuestion(id, response);
+  }
+
+  /** Returns the most recently added pending action, or null if none. */
+  getPendingAction(): PendingAction | null {
+    return this.queue.getMostRecent();
   }
 }
