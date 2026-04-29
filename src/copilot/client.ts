@@ -39,11 +39,14 @@ export declare interface CopilotClient {
 export class CopilotClient extends EventEmitter implements AICliClient {
   readonly provider = 'copilot' as const;
   readonly capabilities: AICliCapabilities = {
-    richContent: false,
+    richContent: 'none',
     setModel: false,
     setPermissionMode: false,
     setMaxThinkingTokens: false,
     listSupportedModels: false,
+    getMessages: false,
+    hooks: false,
+    mcp: false,
   };
 
   private readonly config: CopilotClientConfig;

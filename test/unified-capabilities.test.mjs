@@ -14,14 +14,22 @@ const FLAGS = [
 test('Claude capabilities are all true', () => {
   const c = new ClaudeClient({ cwd: '/tmp', sessionId: 'test' });
   for (const f of FLAGS) {
-    assert.equal(c.capabilities[f], true, `Claude.capabilities.${f} should be true`);
+    if (f === 'richContent') {
+      assert.notEqual(c.capabilities[f], 'none', `Claude.capabilities.${f} should not be 'none'`);
+    } else {
+      assert.equal(c.capabilities[f], true, `Claude.capabilities.${f} should be true`);
+    }
   }
 });
 
 test('Copilot capabilities are all false', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
   for (const f of FLAGS) {
-    assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
+    if (f === 'richContent') {
+      assert.equal(c.capabilities[f], 'none', `Copilot.capabilities.${f} should be 'none'`);
+    } else {
+      assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
+    }
   }
 });
 

@@ -41,11 +41,14 @@ export type ImageSource =
   | { type: 'url'; url: string };
 
 export interface AICliCapabilities {
-  readonly richContent: boolean;
+  readonly richContent: 'none' | 'partial' | 'full';
   readonly setModel: boolean;
   readonly setPermissionMode: boolean;
   readonly setMaxThinkingTokens: boolean;
   readonly listSupportedModels: boolean;
+  readonly getMessages: boolean;
+  readonly hooks: boolean;
+  readonly mcp: boolean;
 }
 
 export type PermissionMode =

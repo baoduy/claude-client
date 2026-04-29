@@ -424,11 +424,14 @@ type _InternalOpenRequest = _InternalQuestionRequest | _InternalToolRequest | _I
 export class ClaudeClient extends EventEmitter implements ITurnSession, AICliClient {
     readonly provider = 'claude' as const;
     readonly capabilities: AICliCapabilities = {
-        richContent: true,
+        richContent: 'partial',
         setModel: true,
         setPermissionMode: true,
         setMaxThinkingTokens: true,
         listSupportedModels: true,
+        getMessages: false,    // wired in later task
+        hooks: true,
+        mcp: true,
     };
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;

@@ -41,7 +41,7 @@ test('createAICliClient returns a client with capabilities', async () => {
   await withClaudeInitStub(async () => {
     const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });
     assert.ok(client.capabilities, 'client.capabilities should exist');
-    assert.equal(typeof client.capabilities.richContent, 'boolean');
+    assert.ok(['none', 'partial', 'full'].includes(client.capabilities.richContent));
     assert.equal(client.capabilities.setModel, true);
   });
 
