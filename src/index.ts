@@ -11,3 +11,7 @@ export * from './turn-handle.js';
 // Re-export both clients at the top level for convenience:
 export { ClaudeClient } from './claude/index.js';
 export { CopilotClient } from './copilot/index.js';
+
+// Unified provider-agnostic API (Phase 2)
+export type { AICliClient } from './ai-cli-client.js';
+export { createAICliClient, type AICliClientConfig } from './factory.js';
