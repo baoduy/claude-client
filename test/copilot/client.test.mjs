@@ -63,7 +63,7 @@ class StreamingFakeGhClient {
   async stop() {}
 }
 
-test('CopilotClient.send returns a TurnHandle whose updates() yields output_delta then result', async () => {
+test('CopilotClient.send returns a TurnHandle whose updates() yields output then result', async () => {
   const ghCtor = function () { return new StreamingFakeGhClient(); };
   const client = new CopilotClient({ cwd: process.cwd() }, { GhClientCtor: ghCtor });
   await client.start();

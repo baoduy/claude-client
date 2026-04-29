@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { CopilotTurnHandle } from '../../dist/esm/copilot/turn-handle.js';
 
-function seedSnapshot(turnId = 't1') {
+function seedSnapshot(id = 'copilot-t1') {
   return {
-    turnId, status: 'running', text: '', reasoningText: '',
-    toolCalls: [], usage: null,
-    startedAt: Date.now(), endedAt: null, error: null,
+    id, status: 'pending', text: '', reasoning: undefined,
+    toolUses: [], toolResults: [], usage: undefined, error: undefined,
+    startedAt: Date.now(), completedAt: undefined,
+    copilotToolCalls: [], copilotUsageRaw: undefined,
   };
 }
 
@@ -14,7 +15,7 @@ test('CopilotTurnHandle delivers buffered updates to a late subscriber', async (
   const handle = new CopilotTurnHandle(seedSnapshot());
   handle.push({ kind: 'output', delta: 'hello ', snapshot: handle.current() });
   handle.push({ kind: 'output', delta: 'world',  snapshot: handle.current() });
-  handle.complete({ ...handle.current(), status: 'completed', endedAt: Date.now() });
+  handle.complete({ ...handle.current(), status: 'completed', completedAt: Date.now() });
 
   const collected = [];
   for await (const u of handle.updates()) collected.push(u);
