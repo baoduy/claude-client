@@ -15,3 +15,19 @@ export { CopilotClient } from './copilot/index.js';
 // Unified provider-agnostic API (Phase 2)
 export type { AICliClient } from './ai-cli-client.js';
 export { createAICliClient, type AICliClientConfig } from './factory.js';
+
+// PTY transport (Phase 3)
+export type {
+  PtyClient,
+  PtyClientConfig,
+  PtyCommonConfig,
+  ClaudePtyConfig,
+  CopilotPtyConfig,
+} from './pty/index.js';
+export {
+  PtyError,
+  PtyDependencyMissingError,
+  PtyBinaryNotFoundError,
+  PtySpawnError,
+  createPtyClient,
+} from './pty/index.js';

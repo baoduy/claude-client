@@ -11,3 +11,9 @@ test('top-level barrel still exports ClaudeClient and CopilotClient', async () =
   assert.equal(typeof mod.ClaudeClient, 'function');
   assert.equal(typeof mod.CopilotClient, 'function');
 });
+
+test('top-level barrel exports createPtyClient', async () => {
+  const mod = await import('../dist/esm/index.js');
+  assert.equal(typeof mod.createPtyClient, 'function');
+  assert.equal(typeof mod.PtyDependencyMissingError, 'function');
+});
