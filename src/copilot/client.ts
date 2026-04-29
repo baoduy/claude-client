@@ -13,7 +13,8 @@ import type {
   CopilotUsage,
 } from './types.js';
 import type { AICliClient } from '../ai-cli-client.js';
-import type { AICliCapabilities } from '../unified/index.js';
+import type { AICliCapabilities, SendInput, ContentBlock } from '../unified/index.js';
+import { UnsupportedContentError } from '../unified/index.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -94,7 +95,43 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     this.emit('status_change', status, action);
   }
 
-  send(prompt: string): CopilotTurnHandle {
+  /**
+   * Flatten a `SendInput` to a plain text prompt suitable for the Copilot SDK.
+   *
+   * - `string` — passed through unchanged.
+   * - `{ text }` — unwrapped.
+   * - `{ content: [...] }` — text blocks are concatenated; non-text blocks
+   *   (e.g. images) cause a synchronous `UnsupportedContentError` carrying
+   *   the offending block and its index. The pre-scan happens before any
+   *   side effects so callers can retry with corrected input.
+   *
+   * Empty `content: []` arrays throw as well — there is no text to send.
+   */
+  private _flattenSendInput(input: SendInput): string {
+    if (typeof input === 'string') return input;
+    if ('text' in input) return input.text;
+
+    if (input.content.length === 0) {
+      throw new UnsupportedContentError(
+        'copilot',
+        { type: 'text', text: '' } as ContentBlock,
+        0,
+      );
+    }
+
+    let out = '';
+    for (let i = 0; i < input.content.length; i++) {
+      const block = input.content[i];
+      if (block.type !== 'text') {
+        throw new UnsupportedContentError('copilot', block, i);
+      }
+      out += block.text;
+    }
+    return out;
+  }
+
+  send(input: SendInput): CopilotTurnHandle {
+    const prompt = this._flattenSendInput(input);
     if (this._currentTurn) {
       throw new Error('A turn is already in flight. Call interrupt() first or await turn.done.');
     }
@@ -125,16 +162,21 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     return handle;
   }
 
-  async sendMessage(text: string): Promise<void> {
-    const turn = this.send(text);
-    await turn.done;
+  sendMessage(input: SendInput): Promise<void> {
+    // Note: not `async`. Validation runs synchronously so bad input throws
+    // before the Promise is constructed. send() pre-scans content blocks
+    // and throws UnsupportedContentError if any are not text.
+    const turn = this.send(input);
+    return turn.done.then(() => undefined);
   }
 
-  queueMessage(text: string): void {
+  queueMessage(input: SendInput): void {
+    // Pre-scan synchronously so bad input fails fast even when queued.
+    const prompt = this._flattenSendInput(input);
     if (this._status === 'running') {
-      this._messageQueue.push(text);
+      this._messageQueue.push(prompt);
     } else {
-      this.sendMessage(text).catch(err => this.emit('error', err));
+      this.sendMessage(prompt).catch(err => this.emit('error', err));
     }
   }
 
