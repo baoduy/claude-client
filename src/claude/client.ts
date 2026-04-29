@@ -38,6 +38,7 @@ import {
     nowIso,
     TurnHandle
 } from './turn-handle.js';
+import type { AICliClient } from '../ai-cli-client.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -414,7 +415,8 @@ interface _InternalHookRequest    extends _InternalBaseRequest { request: HookRe
 interface _InternalMcpRequest     extends _InternalBaseRequest { request: McpRequest; }
 type _InternalOpenRequest = _InternalQuestionRequest | _InternalToolRequest | _InternalHookRequest | _InternalMcpRequest;
 
-export class ClaudeClient extends EventEmitter implements ITurnSession {
+export class ClaudeClient extends EventEmitter implements ITurnSession, AICliClient {
+    readonly provider = 'claude' as const;
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
     private readonly transport = new ClaudeTransport();
@@ -1203,6 +1205,13 @@ export class ClaudeClient extends EventEmitter implements ITurnSession {
             this.process.kill();
             this.process = null;
         }
+    }
+
+    /**
+     * Async alias for kill(); satisfies the unified AICliClient interface.
+     */
+    async close(): Promise<void> {
+        this.kill();
     }
 
     /**
