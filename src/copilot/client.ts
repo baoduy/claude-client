@@ -41,12 +41,17 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   readonly capabilities: AICliCapabilities = {
     richContent: 'full',
     setModel: true,
-    setPermissionMode: false,
+    setPermissionMode: false,           // flipped in B7
     setMaxThinkingTokens: false,
     listSupportedModels: true,
     getMessages: true,
     hooks: true,
     mcp: true,
+    // Phase 1.2 additions — start as not-yet-implemented; B6/B7/B8 flip them.
+    permissionModes: [] as const,        // populated in B7
+    interactiveApproval: false,          // flipped in B6
+    interruptTurnGranularity: 'session-only',
+    detailedStatus: false,               // flipped in B7
   };
 
   private readonly config: CopilotClientConfig;

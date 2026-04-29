@@ -8,10 +8,13 @@ export type {
   ImageSource,
   AICliCapabilities,
   PermissionMode,
+  LegacyPermissionMode,
   SupportedModelsResponse,
   UnifiedMessage,
   UnifiedMessageRaw,
 } from './types.js';
+
+export { translateLegacyPermissionMode } from './types.js';
 
 export type { UnifiedEventMap, UnifiedEventName } from './events.js';
 

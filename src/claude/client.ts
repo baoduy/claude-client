@@ -41,12 +41,15 @@ import {
 import type { AICliClient } from '../ai-cli-client.js';
 import type {
     AICliCapabilities,
+    PermissionMode,
+    LegacyPermissionMode,
     TurnSnapshot as UnifiedTurnSnapshot,
     TurnToolUse as UnifiedTurnToolUse,
     TurnToolResult as UnifiedTurnToolResult,
     UnifiedStatus,
     UnifiedMessage,
 } from '../unified/index.js';
+import { translateLegacyPermissionMode } from '../unified/index.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -68,6 +71,22 @@ export type ClaudePermissionMode =
     | 'default'
     | 'dontAsk'
     | 'plan';
+
+/**
+ * Map the unified `PermissionMode` vocabulary onto the Claude wire-protocol
+ * vocabulary (`ClaudePermissionMode`). `'autopilot'` is Copilot-only and
+ * throws — Claude has no equivalent.
+ */
+function unifiedToClaudeMode(mode: PermissionMode): ClaudePermissionMode {
+    switch (mode) {
+        case 'prompt': return 'default';
+        case 'auto-edit': return 'acceptEdits';
+        case 'auto-all': return 'bypassPermissions';
+        case 'plan': return 'plan';
+        case 'autopilot':
+            throw new Error('autopilot is not a Claude permission mode');
+    }
+}
 
 export interface ClaudeClientConfig {
     /**
@@ -433,6 +452,12 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
         getMessages: true,
         hooks: true,
         mcp: true,
+        // Phase 1.2 additions — Claude has all 4 modes (no autopilot),
+        // interactive approval, per-turn granularity, detailed status.
+        permissionModes: ['prompt', 'auto-edit', 'auto-all', 'plan'] as const,
+        interactiveApproval: true,
+        interruptTurnGranularity: 'per-turn',
+        detailedStatus: true,
     };
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
@@ -1127,10 +1152,23 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Set permission mode (default or acceptEdits)
+     * Set permission mode.
+     *
+     * Accepts the unified `PermissionMode` vocabulary (`'prompt'`, `'auto-edit'`,
+     * `'auto-all'`, `'plan'`), the legacy six-value vocabulary (`'default'`,
+     * `'acceptEdits'`, `'auto'`, `'bypassPermissions'`, `'dontAsk'`, `'plan'`),
+     * or a Claude-internal `ClaudePermissionMode`. Inputs are normalized to
+     * the unified vocab and then mapped to the Claude wire-protocol value.
+     *
+     * `'autopilot'` is Copilot-only and will throw if passed.
      */
-    async setPermissionMode(mode: ClaudePermissionMode): Promise<void> {
-        await this.sendControlRequest({ subtype: 'set_permission_mode', mode });
+    async setPermissionMode(
+        mode: PermissionMode | LegacyPermissionMode | ClaudePermissionMode,
+    ): Promise<void> {
+        const claudeMode = unifiedToClaudeMode(
+            translateLegacyPermissionMode(mode as PermissionMode | LegacyPermissionMode),
+        );
+        await this.sendControlRequest({ subtype: 'set_permission_mode', mode: claudeMode });
     }
 
     /**

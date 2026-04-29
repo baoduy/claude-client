@@ -58,15 +58,52 @@ export interface AICliCapabilities {
   readonly getMessages: boolean;
   readonly hooks: boolean;
   readonly mcp: boolean;
+  // Phase 1.2 additions
+  readonly permissionModes: readonly PermissionMode[];
+  readonly interactiveApproval: boolean;
+  readonly interruptTurnGranularity: 'per-turn' | 'session-only';
+  readonly detailedStatus: boolean;
 }
 
 export type PermissionMode =
+  | 'prompt'
+  | 'auto-edit'
+  | 'auto-all'
+  | 'plan'
+  | 'autopilot';
+
+/** @deprecated Use PermissionMode. Will be removed in 2.0.0. */
+export type LegacyPermissionMode =
   | 'default'
   | 'acceptEdits'
   | 'auto'
   | 'bypassPermissions'
   | 'dontAsk'
   | 'plan';
+
+export function translateLegacyPermissionMode(
+  mode: PermissionMode | LegacyPermissionMode,
+): PermissionMode {
+  switch (mode) {
+    case 'default': return 'prompt';
+    case 'acceptEdits': return 'auto-edit';
+    case 'auto': return 'auto-all';
+    case 'bypassPermissions': return 'auto-all';
+    case 'dontAsk': return 'auto-all';
+    // remaining values are already in the new vocab — pass through
+    case 'prompt':
+    case 'auto-edit':
+    case 'auto-all':
+    case 'plan':
+    case 'autopilot':
+      return mode;
+    default: {
+      // exhaustiveness — should never happen at runtime if types are honored
+      const _exhaustive: never = mode;
+      return _exhaustive;
+    }
+  }
+}
 
 export interface SupportedModelsResponse {
   models: Array<{ id: string; displayName?: string }>;
