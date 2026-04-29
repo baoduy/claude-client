@@ -72,3 +72,18 @@ export interface SupportedModelsResponse {
   models: Array<{ id: string; displayName?: string }>;
   default?: string;
 }
+
+export type UnifiedMessageRaw =
+  | { provider: 'claude'; event: unknown }
+  | { provider: 'copilot'; event: unknown };
+
+export interface UnifiedMessage {
+  readonly id: string;
+  readonly role: 'user' | 'assistant' | 'system' | 'tool';
+  readonly text?: string;
+  readonly reasoning?: string;
+  readonly toolUse?: TurnToolUse;
+  readonly toolResult?: TurnToolResult;
+  readonly timestamp: number;
+  readonly raw: UnifiedMessageRaw;
+}

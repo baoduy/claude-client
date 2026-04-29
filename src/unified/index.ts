@@ -9,6 +9,8 @@ export type {
   AICliCapabilities,
   PermissionMode,
   SupportedModelsResponse,
+  UnifiedMessage,
+  UnifiedMessageRaw,
 } from './types.js';
 
 export type { UnifiedEventMap, UnifiedEventName } from './events.js';

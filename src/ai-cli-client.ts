@@ -6,6 +6,7 @@ import type {
   SupportedModelsResponse,
   TurnSnapshot,
   UnifiedEventMap,
+  UnifiedMessage,
   UnifiedStatus,
 } from './unified/index.js';
 
@@ -66,6 +67,7 @@ export interface AICliClient {
   isProcessing(): boolean;
   getCurrentTurn(): TurnSnapshot | null;
   getHistory(): TurnSnapshot[];
+  getMessages?(): Promise<UnifiedMessage[]>;
 
   // ─── Events (strongly typed over the unified vocabulary) ──────────────────
 
