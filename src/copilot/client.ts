@@ -470,6 +470,16 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     turn.fail(new CopilotInterruptedError());
   }
 
+  async interruptTurn(turnId?: string): Promise<void> {
+    if (turnId !== undefined && process.env.COPILOT_VERBOSE === '1') {
+      // eslint-disable-next-line no-console
+      console.warn(`[copilot] interruptTurn turnId=${turnId} ignored — session-only granularity`);
+    }
+    const session = (this.transport as any).session;
+    if (!session) return; // no-op when not started
+    await session.abort?.();
+  }
+
   // ─── Pull-style interactive approval API (Phase 1.2 — B6) ─────────────────
 
   /** Snapshot of all currently open pending requests, in insertion order. */
