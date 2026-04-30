@@ -74,12 +74,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/baoduy2412/claude-client.git"
+    "url": "https://github.com/baoduy/claude-client"
   },
   "bugs": {
-    "url": "https://github.com/baoduy2412/claude-client/issues"
+    "url": "https://github.com/baoduy/claude-client/issues"
   },
-  "homepage": "https://github.com/baoduy2412/claude-client#readme",
+  "homepage": "https://github.com/baoduy/claude-client",
   "publishConfig": {
     "access": "public"
   },
