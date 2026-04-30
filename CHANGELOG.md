@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.3.0 — 2026-04-29
+
+### Added
+- `CopilotClient` now exposes 10 namespace wrappers for upstream `session.rpc.*`:
+  `plan`, `skills`, `agent`, `history`, `usage`, `shell`, `workspaces`,
+  `name`, `instructions`, `mcp` (with nested `mcp.oauth.login`).
+- Subpath export `@baoduy2412/ai-cli-client/copilot/namespaces` for
+  tree-shake-friendly imports of wrapper classes and their derived
+  request/result types.
+- New error classes: `SessionNotStartedError` (callsite tag),
+  `CopilotRpcError` (namespace/method/cause), and
+  `CopilotExperimentalUnavailableError` (with `cliVersion`).
+- `test/unit/capability-matrix.test.mjs` — CI guard that asserts
+  `docs/provider-capabilities.md` matches runtime `client.capabilities`.
+
+### Notes
+- Five namespaces are marked `@experimental` upstream and may change
+  shape in minor SDK releases: `skills`, `agent`, `history`, `usage`,
+  `mcp`. Method-not-found errors (JSON-RPC -32601) are translated to
+  `CopilotExperimentalUnavailableError` so consumers can detect older
+  CLI versions.
+- All wrappers use a lazy session resolver — methods called before
+  `client.start()` throw `SessionNotStartedError`.
+
 ## 1.2.0 — 2026-04-29
 
 ### Added

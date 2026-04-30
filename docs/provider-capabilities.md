@@ -173,6 +173,39 @@ All 12 events in `UnifiedEventMap` are available on both providers via
 | `printMode`                 |   ✅   |   ❌    | Claude one-shot mode |
 | `sessionId`                 |   ✅   |   ✅    | both providers support session resume |
 
+## Copilot bonus namespaces
+
+Reach via `client.<namespace>.<method>` on a `CopilotClient` instance.
+All map to the upstream `session.rpc.<namespace>.*` namespaces in
+`@github/copilot-sdk@0.3.0`. Methods marked **(@experimental)** wrap
+upstream methods marked `@experimental` and may change shape in minor
+SDK releases.
+
+Constructed via lazy session resolver — calls before `start()` throw
+`SessionNotStartedError`. RPC failures are wrapped as `CopilotRpcError`
+with `namespace`/`method`/`cause` context, except for experimental
+namespaces where "method not found" responses (older CLI) become
+`CopilotExperimentalUnavailableError` with `cliVersion`.
+
+Tree-shake-friendly subpath import:
+
+```ts
+import { CopilotPlanApi } from '@baoduy2412/ai-cli-client/copilot/namespaces';
+```
+
+| Namespace | Methods | Stability |
+| --------- | ------- | --------- |
+| `plan` | `read`, `update`, `delete` | stable |
+| `skills` | `list`, `enable`, `disable`, `reload` | @experimental |
+| `agent` | `list`, `getCurrent`, `select`, `deselect`, `reload` | @experimental |
+| `history` | `compact`, `truncate` | @experimental |
+| `usage` | `getMetrics` | @experimental |
+| `shell` | `exec`, `kill` | stable |
+| `workspaces` | `getWorkspace`, `listFiles`, `readFile`, `createFile` | stable |
+| `name` | `get`, `set` | stable |
+| `instructions` | `getSources` | stable |
+| `mcp` | `list`, `enable`, `disable`, `reload`, **nested** `mcp.oauth.login` | @experimental |
+
 ## PTY transport
 
 PTY transport is exposed via the separate `PtyClient` interface
