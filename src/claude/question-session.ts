@@ -13,10 +13,11 @@ import type {
 
 /**
  * Minimal contract a ClaudeQuestionSession needs from its host client.
- * Both ClaudeClient and StructuredClaudeClient satisfy this structurally.
+ * Uses the rich Claude `QuestionAnswerInput` shape — the session is a
+ * Claude-specific helper, not a unified abstraction.
  */
 export interface QuestionAnswerSubmitter {
-    answerQuestion(id: string, answers: QuestionAnswerInput): Promise<void>;
+    answerQuestionDetailed(id: string, answers: QuestionAnswerInput): Promise<void>;
 }
 
 export class ClaudeQuestionSession {
@@ -92,6 +93,6 @@ export class ClaudeQuestionSession {
     }
 
     async submit(): Promise<void> {
-        await this.client.answerQuestion(this.request.id, this.getAnswers());
+        await this.client.answerQuestionDetailed(this.request.id, this.getAnswers());
     }
 }
