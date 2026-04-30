@@ -1,4 +1,4 @@
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const client = new CopilotClient({ cwd: process.cwd() });

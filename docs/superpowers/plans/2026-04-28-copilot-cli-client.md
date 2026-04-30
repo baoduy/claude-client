@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a `CopilotClient` to `@baoduy2412/ai-cli-client` (wrapping `@github/copilot-sdk`), and simplify `ClaudeClient` by folding `StructuredClaudeClient` into it.
+**Goal:** Add a `CopilotClient` to `@drunkcoding/ai-cli-clients` (wrapping `@github/copilot-sdk`), and simplify `ClaudeClient` by folding `StructuredClaudeClient` into it.
 
 **Architecture:** Two single-layer per-provider clients (`ClaudeClient`, `CopilotClient`) with a shared `TurnHandleBase<T,U>` interface and provider-specific concrete `*TurnHandle` classes. Copilot work delegates to `@github/copilot-sdk` for JSON-RPC transport and credential handling. `tsconfig.json` `rootDir` shifts from `./src/claude` to `./src` to accommodate the new `src/copilot/` sibling and a top-level barrel.
 
@@ -1874,7 +1874,7 @@ export { ClaudeClient } from './claude/index.js';
 export { CopilotClient } from './copilot/index.js';
 ```
 
-(The `export * as claude` and `export * as copilot` namespace exports keep the full set of types/classes accessible from `import { claude, copilot } from '@baoduy2412/ai-cli-client'` while the bare `ClaudeClient` / `CopilotClient` re-exports give the most common path zero-overhead.)
+(The `export * as claude` and `export * as copilot` namespace exports keep the full set of types/classes accessible from `import { claude, copilot } from '@drunkcoding/ai-cli-clients'` while the bare `ClaudeClient` / `CopilotClient` re-exports give the most common path zero-overhead.)
 
 - [ ] **Step 2: Update `package.json` `exports` to add `./copilot`**
 
@@ -2071,7 +2071,7 @@ grep -ln '@baoduy2412/claude-client' examples/
 
 Expected: all six files.
 
-- [ ] **Step 2: Replace `@baoduy2412/claude-client` with `@baoduy2412/ai-cli-client` in each**
+- [ ] **Step 2: Replace `@baoduy2412/claude-client` with `@drunkcoding/ai-cli-clients` in each**
 
 For each file, replace exactly one line:
 
@@ -2082,7 +2082,7 @@ import { ClaudeClient } from '@baoduy2412/claude-client';
 with:
 
 ```ts
-import { ClaudeClient } from '@baoduy2412/ai-cli-client';
+import { ClaudeClient } from '@drunkcoding/ai-cli-clients';
 ```
 
 `examples/structured-requests.ts` may import `StructuredClaudeClient` — replace that with `ClaudeClient` (the structured class no longer exists; its methods are on `ClaudeClient`). Adjust the example body to call `await ClaudeClient.init({...})` directly.
@@ -2099,7 +2099,7 @@ Expected: each compiles. (A standalone `--noEmit` here is a quick check; the pac
 
 ```bash
 git add examples/
-git commit -m "docs(examples): rename to @baoduy2412/ai-cli-client + drop StructuredClaudeClient"
+git commit -m "docs(examples): rename to @drunkcoding/ai-cli-clients + drop StructuredClaudeClient"
 ```
 
 ---
@@ -2115,7 +2115,7 @@ git commit -m "docs(examples): rename to @baoduy2412/ai-cli-client + drop Struct
 - [ ] **Step 1: `examples/copilot/basic.ts`**
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const client = new CopilotClient({ cwd: process.cwd() });
@@ -2136,7 +2136,7 @@ main().catch(err => { console.error(err); process.exit(1); });
 - [ ] **Step 2: `examples/copilot/streaming.ts`**
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const client = new CopilotClient({ cwd: process.cwd() });
@@ -2159,7 +2159,7 @@ main().catch(err => { console.error(err); process.exit(1); });
 - [ ] **Step 3: `examples/copilot/permissions.ts`**
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const client = new CopilotClient({
@@ -2181,7 +2181,7 @@ main().catch(err => { console.error(err); process.exit(1); });
 - [ ] **Step 4: `examples/copilot/byok.ts`**
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -2223,7 +2223,7 @@ git commit -m "docs(examples): Copilot — basic, streaming, permissions, byok"
 Top-level sections (in order):
 
 ```
-# @baoduy2412/ai-cli-client
+# @drunkcoding/ai-cli-clients
 
 Node.js client for controlling Claude Code and GitHub Copilot CLIs.
 
@@ -2272,7 +2272,7 @@ The full content for each section: paste/adapt the content from the spec at `doc
 
 - [ ] **Step 3: Verify all imports in the README's code blocks resolve to the published API**
 
-Read the README aloud (mentally). Every `from '@baoduy2412/ai-cli-client'` must be an export that exists; every `from '@baoduy2412/ai-cli-client/copilot'` must work. There should be **zero** `@baoduy2412/claude-client` references and **zero** `StructuredClaudeClient` references.
+Read the README aloud (mentally). Every `from '@drunkcoding/ai-cli-clients'` must be an export that exists; every `from '@drunkcoding/ai-cli-clients/copilot'` must work. There should be **zero** `@baoduy2412/claude-client` references and **zero** `StructuredClaudeClient` references.
 
 ```bash
 grep -c '@baoduy2412/claude-client' README.md
@@ -2305,18 +2305,18 @@ The current `package.json` reports `0.3.3`. This release adds a new module + bre
 ## 0.4.0 — 2026-04-28
 
 ### Added
-- `CopilotClient` (`@baoduy2412/ai-cli-client/copilot`) — wraps `@github/copilot-sdk` with a surface that mirrors `ClaudeClient`. Supports streaming events, multi-turn sessions (auto-managed or caller-supplied), permission DSL, BYOK, and disk-backed session browsing.
-- Top-level barrel: `import { ClaudeClient, CopilotClient } from '@baoduy2412/ai-cli-client'` works directly.
+- `CopilotClient` (`@drunkcoding/ai-cli-clients/copilot`) — wraps `@github/copilot-sdk` with a surface that mirrors `ClaudeClient`. Supports streaming events, multi-turn sessions (auto-managed or caller-supplied), permission DSL, BYOK, and disk-backed session browsing.
+- Top-level barrel: `import { ClaudeClient, CopilotClient } from '@drunkcoding/ai-cli-clients'` works directly.
 - New `./copilot` subpath in `package.json` `exports`.
 - New examples under `examples/copilot/`.
 
 ### Changed
-- **Package renamed from `@baoduy2412/claude-client` to `@baoduy2412/ai-cli-client`.**
-- Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@baoduy2412/ai-cli-client/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
+- **Package renamed from `@baoduy2412/claude-client` to `@drunkcoding/ai-cli-clients`.**
+- Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@drunkcoding/ai-cli-clients/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
 - `ClaudeClient.init()` now returns `ClaudeClient` (was `StructuredClaudeClient`). Existing callers using `await ClaudeClient.init(config)` keep working — the methods previously on `StructuredClaudeClient` (`send`, `getHistory`, `getOpenRequests`, `approveRequest`, etc.) are now on `ClaudeClient` directly.
 
 ### Removed
-- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace `import { StructuredClaudeClient } from '@baoduy2412/claude-client'` with `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` and use `ClaudeClient.init(config)` (signature unchanged).
+- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace `import { StructuredClaudeClient } from '@baoduy2412/claude-client'` with `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` and use `ClaudeClient.init(config)` (signature unchanged).
 - `src/claude/structured.ts` deleted.
 ```
 

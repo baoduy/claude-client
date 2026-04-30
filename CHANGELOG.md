@@ -6,7 +6,7 @@
 - `CopilotClient` now exposes 10 namespace wrappers for upstream `session.rpc.*`:
   `plan`, `skills`, `agent`, `history`, `usage`, `shell`, `workspaces`,
   `name`, `instructions`, `mcp` (with nested `mcp.oauth.login`).
-- Subpath export `@baoduy2412/ai-cli-client/copilot/namespaces` for
+- Subpath export `@drunkcoding/ai-cli-clients/copilot/namespaces` for
   tree-shake-friendly imports of wrapper classes and their derived
   request/result types.
 - New error classes: `SessionNotStartedError` (callsite tag),
@@ -232,7 +232,7 @@ PTY transport is unaffected by this release.
 - Error types: `PtyError`, `PtyDependencyMissingError`,
   `PtyBinaryNotFoundError`, `PtySpawnError` — with `code` discriminator
   and `cause` chaining.
-- New `./pty` subpath: `import { createPtyClient } from '@baoduy2412/ai-cli-client/pty'`.
+- New `./pty` subpath: `import { createPtyClient } from '@drunkcoding/ai-cli-clients/pty'`.
 - Examples under `examples/pty/`: `basic-claude.ts`, `basic-copilot.ts`,
   `electron-main.ts`.
 - Consumer guide at `docs/pty-transport.md`.
@@ -290,20 +290,20 @@ PTY transport is unaffected by this release.
 ## 0.4.0 — 2026-04-28
 
 ### Added
-- `CopilotClient` (`@baoduy2412/ai-cli-client/copilot`) — wraps `@github/copilot-sdk` with a surface that mirrors `ClaudeClient`. Supports streaming events, multi-turn sessions (auto-managed or caller-supplied), permission DSL (allow/deny tool patterns), BYOK (Anthropic/OpenAI/Azure keys), and disk-backed session browsing.
-- Top-level barrel: `import { ClaudeClient, CopilotClient } from '@baoduy2412/ai-cli-client'` works directly.
+- `CopilotClient` (`@drunkcoding/ai-cli-clients/copilot`) — wraps `@github/copilot-sdk` with a surface that mirrors `ClaudeClient`. Supports streaming events, multi-turn sessions (auto-managed or caller-supplied), permission DSL (allow/deny tool patterns), BYOK (Anthropic/OpenAI/Azure keys), and disk-backed session browsing.
+- Top-level barrel: `import { ClaudeClient, CopilotClient } from '@drunkcoding/ai-cli-clients'` works directly.
 - New `./copilot` subpath in `package.json` `exports`.
 - New examples under `examples/copilot/`: `basic.ts`, `streaming.ts`, `permissions.ts`, `byok.ts`.
 - Shared `TurnHandleBase<TSnapshot, TUpdate>` interface at the top of `src/`.
 - `npm run integration:copilot` smoke script.
 
 ### Changed
-- **Package renamed to `@baoduy2412/ai-cli-client`.**
-- Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@baoduy2412/ai-cli-client/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
+- **Package renamed to `@drunkcoding/ai-cli-clients`.**
+- Top-level dist layout reorganized: Claude module is now at `./dist/esm/claude/...` (was `./dist/esm/...`). Subpath imports keep working: `@drunkcoding/ai-cli-clients/sessions`, `/mcp`, `/task-store`, `/task-queue` resolve to the same Claude submodules they always did.
 - `ClaudeClient.init()` now returns `ClaudeClient` (was `StructuredClaudeClient`). Existing callers using `await ClaudeClient.init(config)` keep working — the methods previously on `StructuredClaudeClient` (`send`, `getHistory`, `getOpenRequests`, `approveRequest`, `answerQuestion`, etc.) are now on `ClaudeClient` directly.
 
 ### Removed
-- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace any `import { StructuredClaudeClient } from '@<old>'` with `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` and use `ClaudeClient.init(config)` (signature unchanged).
+- **`StructuredClaudeClient` class.** Its methods folded onto `ClaudeClient`. Replace any `import { StructuredClaudeClient } from '@<old>'` with `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` and use `ClaudeClient.init(config)` (signature unchanged).
 - `src/claude/structured.ts` deleted.
 
 ### Known Limitations

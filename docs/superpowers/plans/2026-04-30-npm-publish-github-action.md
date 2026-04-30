@@ -292,7 +292,7 @@ Create the file with this exact content:
 ````markdown
 # Release setup
 
-This package is published to npm as [`@baoduy2412/ai-cli-client`](https://www.npmjs.com/package/@baoduy2412/ai-cli-client) by the
+This package is published to npm as [`@drunkcoding/ai-cli-clients`](https://www.npmjs.com/package/@drunkcoding/ai-cli-clients) by the
 GitHub Actions workflow at `.github/workflows/npm-publish.yml`. CI runs on
 every push and PR via `.github/workflows/ci.yml`.
 
@@ -316,7 +316,7 @@ git push origin v1.3.0
 
 1. Create a granular access token at <https://www.npmjs.com/settings/baoduy2412/tokens/granular-access-tokens/new>:
    - **Permissions:** Read and write
-   - **Packages and scopes:** select `@baoduy2412/ai-cli-client`
+   - **Packages and scopes:** select `@drunkcoding/ai-cli-clients`
    - **Expiration:** your preference (e.g. 1 year)
 2. In the GitHub repo, go to **Settings → Secrets and variables → Actions → New repository secret**.
 3. Name: `NPM_TOKEN`. Value: paste the token. Save.
@@ -356,7 +356,7 @@ setting must allow those grants.)
 | ------- | ----- | --- |
 | `npm publish` fails with `cannot republish over existing version` | No new commits since the last `v*` tag, so semantic-version computed the same version | Land at least one new commit, dispatch again. |
 | `git push origin v<version>` fails with `tag already exists` | A previous run pushed the tag but failed before npm publish | Delete the local + remote tag, then re-run: `git tag -d v<version>; git push origin :refs/tags/v<version>` (do this only if you've confirmed the version was *not* published to npm) |
-| `npm publish` fails with `403 Forbidden` | `NPM_TOKEN` missing or not scoped to `@baoduy2412/ai-cli-client` | Re-create the granular token with package scope, update secret. |
+| `npm publish` fails with `403 Forbidden` | `NPM_TOKEN` missing or not scoped to `@drunkcoding/ai-cli-clients` | Re-create the granular token with package scope, update secret. |
 | `Push git tag` step fails with permission error | Repo's workflow permissions are read-only | Settings → Actions → General → Workflow permissions → Read and write. |
 
 ## Local verification before dispatching

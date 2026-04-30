@@ -42,7 +42,7 @@ All PTY errors extend `PtyError`. Each subclass carries a stable string `code` s
 ## Usage
 
 ```ts
-import { createPtyClient, PtyDependencyMissingError } from '@baoduy2412/ai-cli-client/pty';
+import { createPtyClient, PtyDependencyMissingError } from '@drunkcoding/ai-cli-clients/pty';
 
 try {
   const pty = await createPtyClient({

@@ -12,7 +12,7 @@
 //   - IPC channel "pty:resize" — renderer → main ({cols, rows})
 
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { createPtyClient, type PtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient, type PtyClient } from '@drunkcoding/ai-cli-clients';
 
 let pty: PtyClient | null = null;
 

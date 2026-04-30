@@ -51,7 +51,7 @@ These classes are accessed through the parent client; you never `new` them direc
 import {
   CopilotClient,
   CopilotExperimentalUnavailableError,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = new CopilotClient({ cwd: process.cwd() });
 await client.start();

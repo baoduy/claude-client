@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The package's entry point. This module owns the unified provider-agnostic interface (`AICliClient`), the unified factory (`createAICliClient`), and the cross-provider `TurnHandleBase` contract. It also re-exports the public surface of every module beneath it so consumers can `import { ... } from '@baoduy2412/ai-cli-client'` rather than chasing subpaths.
+The package's entry point. This module owns the unified provider-agnostic interface (`AICliClient`), the unified factory (`createAICliClient`), and the cross-provider `TurnHandleBase` contract. It also re-exports the public surface of every module beneath it so consumers can `import { ... } from '@drunkcoding/ai-cli-clients'` rather than chasing subpaths.
 
-For backward compatibility, all of `claude/`'s public surface is re-exported here, so existing `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` calls keep working. PTY exports are also surfaced at the top level alongside the `./pty` subpath.
+For backward compatibility, all of `claude/`'s public surface is re-exported here, so existing `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` calls keep working. PTY exports are also surfaced at the top level alongside the `./pty` subpath.
 
 ## Public exports
 
@@ -18,7 +18,7 @@ For backward compatibility, all of `claude/`'s public surface is re-exported her
 | `TurnHandleBase` | `turn-handle.ts` | Cross-provider turn-handle interface — the lowest common denominator of `TurnHandle` (Claude) and `CopilotTurnHandle`. |
 | Unified types | re-export of [`./unified/`](./unified/) | `UnifiedStatus`, `TurnSnapshot`, `TurnToolUse`, `TurnToolResult`, `SendInput`, `ContentBlock`, `ImageSource`, `AICliCapabilities`, `PermissionMode`, `LegacyPermissionMode`, `SupportedModelsResponse`, `UnifiedEventMap`, `UnifiedEventName`, `UnsupportedContentError`, `translateLegacyPermissionMode`. See [`./unified/README.md`](./unified/README.md). |
 | PTY surface | re-export of [`./pty/`](./pty/) | `createPtyClient`, `PtyClient`, `PtyClientConfig`, `PtyCommonConfig`, `ClaudePtyConfig`, `CopilotPtyConfig`, plus the `Pty*Error` hierarchy (`PtyError`, `PtyDependencyMissingError`, `PtyBinaryNotFoundError`, `PtySpawnError`). See [`./pty/README.md`](./pty/README.md). |
-| Namespace re-exports | `index.ts` | `import * as claude from '@baoduy2412/ai-cli-client/claude'` and `... copilot ...` work via the `./claude` and `./copilot` subpath exports. |
+| Namespace re-exports | `index.ts` | `import * as claude from '@drunkcoding/ai-cli-clients/claude'` and `... copilot ...` work via the `./claude` and `./copilot` subpath exports. |
 
 ## Key interfaces
 
@@ -48,7 +48,7 @@ The contract every turn handle implements. Two type parameters because Claude an
 import {
   createAICliClient,
   type AICliClientConfig,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const config: AICliClientConfig = { provider: 'claude', cwd: process.cwd() };
 const client = await createAICliClient(config);

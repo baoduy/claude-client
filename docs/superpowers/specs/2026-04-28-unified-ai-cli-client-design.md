@@ -10,7 +10,7 @@
 ## 1. Goal
 
 Add a thin, provider-agnostic API on top of `ClaudeClient` and `CopilotClient` so that
-consumers of `@baoduy2412/ai-cli-client` can write code against a single
+consumers of `@drunkcoding/ai-cli-clients` can write code against a single
 `AICliClient` interface and pick the provider via a runtime config flag.
 
 The driving use case is **library-side readiness** — there is no concrete
@@ -75,7 +75,7 @@ import {
   createAICliClient,
   type AICliClient,
   type AICliClientConfig,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = await createAICliClient({
   provider: 'claude',

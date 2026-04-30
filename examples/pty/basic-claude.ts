@@ -7,7 +7,7 @@
 //
 // You can ^C to kill, or type /exit inside the Claude UI.
 
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 async function main() {
   const cols = process.stdout.columns || 80;

@@ -58,7 +58,7 @@ import {
   type TurnSnapshot,
   type AICliCapabilities,
   UnsupportedContentError,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 function summarise(snapshot: TurnSnapshot): string {
   const tools = snapshot.toolUses.map((t) => t.name).join(', ');

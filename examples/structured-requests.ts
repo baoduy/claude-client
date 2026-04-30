@@ -1,4 +1,4 @@
-import { ClaudeClient } from '@baoduy2412/ai-cli-client';
+import { ClaudeClient } from '@drunkcoding/ai-cli-clients';
 
 const client = await ClaudeClient.init({
   cwd: process.cwd(),
