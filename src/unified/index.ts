@@ -26,4 +26,4 @@ export { translateLegacyPermissionMode } from './types.js';
 
 export type { UnifiedEventMap, UnifiedEventName } from './events.js';
 
-export { UnsupportedContentError } from './errors.js';
+export { UnsupportedContentError, UnsupportedModeError } from './errors.js';

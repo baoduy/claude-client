@@ -26,7 +26,7 @@ test('Claude capabilities are all true', () => {
 test('Copilot capabilities reflect Task A4/A5/A6/A9 progress (richContent: "full", setModel + listSupportedModels + getMessages: true)', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
   // Group E flags expected to be true after each gap-fill task.
-  const trueFlags = new Set(['setModel', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9
+  const trueFlags = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
   for (const f of FLAGS) {
     if (f === 'richContent') {
       // Task A4 widened richContent to 'full' once attachments were wired in.
@@ -59,7 +59,7 @@ test('Claude provides the methods its capabilities advertise', () => {
 test('Copilot exposes only the optional methods its capabilities advertise', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
   // Methods Copilot now implements (track Group E gap-fill progress).
-  const presentMethods = new Set(['setModel', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9
+  const presentMethods = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
   for (const f of FLAGS.filter(x => x !== 'richContent')) {
     if (presentMethods.has(f)) {
       assert.equal(typeof c[f], 'function', `Copilot.${f} should be a method`);

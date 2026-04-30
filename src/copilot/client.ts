@@ -25,6 +25,13 @@ import type {
   UnifiedMessage,
 } from '../unified/index.js';
 import { sendInputToCopilotMessage, type CopilotMessage } from './attachments.js';
+import { permissionModeToOps } from './permission-mapping.js';
+import { translateLegacyPermissionMode, UnsupportedModeError } from '../unified/index.js';
+import type {
+  PermissionMode,
+  LegacyPermissionMode,
+  DetailedStatus,
+} from '../unified/index.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -51,17 +58,17 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   readonly capabilities: AICliCapabilities = {
     richContent: 'full',
     setModel: true,
-    setPermissionMode: false,           // flipped in B7
+    setPermissionMode: true,
     setMaxThinkingTokens: false,
     listSupportedModels: true,
     getMessages: true,
     hooks: true,
     mcp: true,
-    // Phase 1.2 additions — start as not-yet-implemented; B6/B7/B8 flip them.
-    permissionModes: [] as const,        // populated in B7
-    interactiveApproval: true,           // flipped in B6
+    // Phase 1.2 additions
+    permissionModes: ['prompt', 'auto-edit', 'auto-all', 'plan', 'autopilot'] as const,
+    interactiveApproval: true,
     interruptTurnGranularity: 'session-only',
-    detailedStatus: false,               // flipped in B7
+    detailedStatus: true,
   };
 
   private readonly config: CopilotClientConfig;
@@ -73,6 +80,9 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   private _history: CopilotTurnSnapshot[] = [];
   private _messageQueue: CopilotMessage[] = [];
   private _closed = false;
+  private _currentPermissionMode: PermissionMode = 'prompt';
+  private _lastEventType: string | undefined = undefined;
+  private _lastEventTimestamp: number | undefined = undefined;
 
   constructor(config: CopilotClientConfig, internals?: CopilotClientInternals) {
     super();
@@ -276,6 +286,8 @@ export class CopilotClient extends EventEmitter implements AICliClient {
 
   private handleSdkEvent(event: any, handle: CopilotTurnHandle): void {
     if (!event || typeof event !== 'object') return;
+    this._lastEventType = event.type;
+    this._lastEventTimestamp = event.timestamp ? Date.parse(event.timestamp) : Date.now();
     const type = event.type;
 
     switch (type) {
@@ -334,6 +346,42 @@ export class CopilotClient extends EventEmitter implements AICliClient {
     const session = (this.transport as any).session;
     if (!session) throw new Error('Copilot session not started — call start() first.');
     await session.setModel(model);
+  }
+
+  async setPermissionMode(mode: PermissionMode | LegacyPermissionMode): Promise<void> {
+    const session = (this.transport as any).session;
+    if (!session) throw new Error('Copilot session not started — call start() first.');
+
+    const normalized = translateLegacyPermissionMode(mode);
+    if (!this.capabilities.permissionModes.includes(normalized)) {
+      throw new UnsupportedModeError('copilot', String(mode));
+    }
+
+    const ops = permissionModeToOps(mode);
+    await session.rpc.mode.set({ mode: ops.modeSet });
+    await session.rpc.permissions.setApproveAll({ enabled: ops.approveAll });
+    this.queue.setAutoEdit(ops.autoEdit);
+    this._currentPermissionMode = normalized;
+  }
+
+  getDetailedStatus(): DetailedStatus {
+    const status: 'idle' | 'running' | 'error' =
+      this._status === 'error' ? 'error' :
+      this._status === 'running' ? 'running' : 'idle';
+
+    return {
+      status,
+      phase: this._lastEventType ?? (this._status === 'running' ? 'running' : 'idle'),
+      pendingRequestCount: this.queue.size(),
+      permissionMode: this._currentPermissionMode,
+      raw: {
+        provider: 'copilot',
+        payload: {
+          lastEventType: this._lastEventType,
+          lastEventTimestamp: this._lastEventTimestamp,
+        },
+      },
+    };
   }
 
   async listSupportedModels(_timeout?: number): Promise<SupportedModelsResponse> {
