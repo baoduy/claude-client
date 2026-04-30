@@ -83,8 +83,8 @@ examples/
 ### Public surface after Phase 3
 
 ```ts
-import { createPtyClient, type PtyClient } from '@baoduy2412/ai-cli-client';
-// also available at: '@baoduy2412/ai-cli-client/pty'
+import { createPtyClient, type PtyClient } from '@drunkcoding/ai-cli-clients';
+// also available at: '@drunkcoding/ai-cli-clients/pty'
 
 const pty: PtyClient = await createPtyClient({
   provider: 'claude',

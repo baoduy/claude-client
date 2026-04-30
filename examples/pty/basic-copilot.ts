@@ -4,7 +4,7 @@
 // Run with:
 //   npm run build && node --import tsx examples/pty/basic-copilot.ts
 
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 async function main() {
   const cols = process.stdout.columns || 80;

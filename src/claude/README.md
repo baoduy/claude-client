@@ -6,7 +6,7 @@ Provider implementation for Anthropic's Claude Code CLI. Spawns `claude` as a su
 
 This is the older and more featureful of the two providers; the unified surface was designed to fit both, but Claude exposes capabilities Copilot does not (model setting, permission-mode setting, max-thinking-tokens, model listing, in-process MCP server hosting, hooks, fine-grained interrupt). Capability flags on `client.capabilities` reflect this.
 
-For backward compatibility, `src/index.ts` re-exports this module's public surface at the package root, so `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` works.
+For backward compatibility, `src/index.ts` re-exports this module's public surface at the package root, so `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` works.
 
 ## Public exports
 
@@ -65,7 +65,7 @@ import {
   ClaudeClient,
   attachMcpHandlers,
   type McpHandlers,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = await ClaudeClient.init({ cwd: process.cwd() });
 

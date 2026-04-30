@@ -58,7 +58,7 @@ import {
   CopilotClient,
   CopilotAuthError,
   CopilotExperimentalUnavailableError,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = new CopilotClient({ cwd: process.cwd() });
 

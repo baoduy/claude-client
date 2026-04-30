@@ -114,7 +114,7 @@ import {
   type TurnSnapshot,
   type AICliCapabilities,
   UnsupportedContentError,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 function summarise(snapshot: TurnSnapshot): string {
   const tools = snapshot.toolUses.map((t) => t.name).join(', ');
@@ -228,7 +228,7 @@ All PTY errors extend `PtyError`. Each subclass carries a stable string `code` s
 ## Usage
 
 ```ts
-import { createPtyClient, PtyDependencyMissingError } from '@baoduy2412/ai-cli-client/pty';
+import { createPtyClient, PtyDependencyMissingError } from '@drunkcoding/ai-cli-clients/pty';
 
 try {
   const pty = await createPtyClient({
@@ -363,7 +363,7 @@ This is also the only namespace that has a Claude analogue, but in a different s
 These classes are accessed through the parent client; you never `new` them directly:
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients';
 
 const client = new CopilotClient({ cwd: process.cwd() });
 await client.start();
@@ -373,7 +373,7 @@ const plan = await client.plan.list();
 await client.workspaces.readFile({ path: 'package.json' });
 
 // Experimental namespaces — handle the unavailable case.
-import { CopilotExperimentalUnavailableError } from '@baoduy2412/ai-cli-client';
+import { CopilotExperimentalUnavailableError } from '@drunkcoding/ai-cli-clients';
 try {
   const usage = await client.usage.get();
   console.log(usage);
@@ -510,7 +510,7 @@ import {
   CopilotClient,
   CopilotAuthError,
   CopilotExperimentalUnavailableError,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = new CopilotClient({ cwd: process.cwd() });
 
@@ -625,7 +625,7 @@ Provider implementation for Anthropic's Claude Code CLI. Spawns `claude` as a su
 
 This is the older and more featureful of the two providers; the unified surface was designed to fit both, but Claude exposes capabilities Copilot does not (model setting, permission-mode setting, max-thinking-tokens, model listing, in-process MCP server hosting, hooks, fine-grained interrupt). Capability flags on `client.capabilities` reflect this.
 
-For backward compatibility, `src/index.ts` re-exports this module's public surface at the package root, so `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` works.
+For backward compatibility, `src/index.ts` re-exports this module's public surface at the package root, so `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` works.
 
 ## Public exports
 
@@ -684,7 +684,7 @@ import {
   ClaudeClient,
   attachMcpHandlers,
   type McpHandlers,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const client = await ClaudeClient.init({ cwd: process.cwd() });
 
@@ -778,9 +778,9 @@ Write `src/README.md`:
 
 ## Purpose
 
-The package's entry point. This module owns the unified provider-agnostic interface (`AICliClient`), the unified factory (`createAICliClient`), and the cross-provider `TurnHandleBase` contract. It also re-exports the public surface of every module beneath it so consumers can `import { ... } from '@baoduy2412/ai-cli-client'` rather than chasing subpaths.
+The package's entry point. This module owns the unified provider-agnostic interface (`AICliClient`), the unified factory (`createAICliClient`), and the cross-provider `TurnHandleBase` contract. It also re-exports the public surface of every module beneath it so consumers can `import { ... } from '@drunkcoding/ai-cli-clients'` rather than chasing subpaths.
 
-For backward compatibility, all of `claude/`'s public surface is re-exported here, so existing `import { ClaudeClient } from '@baoduy2412/ai-cli-client'` calls keep working. PTY exports are also surfaced at the top level alongside the `./pty` subpath.
+For backward compatibility, all of `claude/`'s public surface is re-exported here, so existing `import { ClaudeClient } from '@drunkcoding/ai-cli-clients'` calls keep working. PTY exports are also surfaced at the top level alongside the `./pty` subpath.
 
 ## Public exports
 
@@ -794,7 +794,7 @@ For backward compatibility, all of `claude/`'s public surface is re-exported her
 | `TurnHandleBase` | `turn-handle.ts` | Cross-provider turn-handle interface — the lowest common denominator of `ClaudeTurnHandle` and `CopilotTurnHandle`. |
 | Unified types | re-export of [`./unified/`](./unified/) | `TurnSnapshot`, `SendInput`, `ContentBlock`, `AICliCapabilities`, `PermissionMode`, `LegacyPermissionMode`, `SupportedModelsResponse`, `UnifiedEventMap`, `UnifiedEventName`, `UnsupportedContentError`, `translateLegacyPermissionMode`, plus the Phase 1.2 pending-request shapes. See [`./unified/README.md`](./unified/README.md). |
 | PTY surface | re-export of [`./pty/`](./pty/) | `createPtyClient`, `PtyClient`, `PtyClientConfig`, `PtyCommonConfig`, `ClaudePtyConfig`, `CopilotPtyConfig`, plus the `Pty*Error` hierarchy. See [`./pty/README.md`](./pty/README.md). |
-| Namespace re-exports | `index.ts` | `import * as claude from '@baoduy2412/ai-cli-client/claude'` and `... copilot ...` work via the `./claude` and `./copilot` subpath exports. |
+| Namespace re-exports | `index.ts` | `import * as claude from '@drunkcoding/ai-cli-clients/claude'` and `... copilot ...` work via the `./claude` and `./copilot` subpath exports. |
 
 ## Key interfaces
 
@@ -824,7 +824,7 @@ The contract every turn handle implements. Two type parameters because Claude an
 import {
   createAICliClient,
   type AICliClientConfig,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const config: AICliClientConfig = { provider: 'claude', cwd: process.cwd() };
 const client = await createAICliClient(config);

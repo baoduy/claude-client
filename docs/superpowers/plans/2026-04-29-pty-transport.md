@@ -1207,7 +1207,7 @@ if (c.transport === 'pty') {
   throw new CopilotFeatureUnsupportedError(
     'transport',
     "CopilotClient does not support transport: 'pty'. " +
-    "Use createPtyClient({ provider: 'copilot', ... }) from '@baoduy2412/ai-cli-client' instead.",
+    "Use createPtyClient({ provider: 'copilot', ... }) from '@drunkcoding/ai-cli-clients' instead.",
   );
 }
 ```
@@ -1399,7 +1399,7 @@ rtk git commit -m "test(pty): real-binary smoke for both providers; skips when p
 //
 // You can ^C to kill, or type /exit inside the Claude UI.
 
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 async function main() {
   const cols = process.stdout.columns || 80;
@@ -1452,7 +1452,7 @@ rtk git commit -m "docs(examples): pty/basic-claude — spawn claude in a PTY"
 // Run with:
 //   npm run build && node --import tsx examples/pty/basic-copilot.ts
 
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 async function main() {
   const cols = process.stdout.columns || 80;
@@ -1511,7 +1511,7 @@ rtk git commit -m "docs(examples): pty/basic-copilot — spawn copilot in a PTY"
 //   - IPC channel "pty:resize" — renderer → main ({cols, rows})
 
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { createPtyClient, type PtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient, type PtyClient } from '@drunkcoding/ai-cli-clients';
 
 let pty: PtyClient | null = null;
 
@@ -1575,7 +1575,7 @@ PTY mode requires `node-pty`, which is an **optional peer dependency**
 (it's a native module — most consumers don't need it):
 
 ```bash
-npm install @baoduy2412/ai-cli-client node-pty
+npm install @drunkcoding/ai-cli-clients node-pty
 ```
 
 For Electron apps, rebuild `node-pty` against your Electron version:
@@ -1590,7 +1590,7 @@ If `node-pty` is missing at runtime, `createPtyClient` throws
 ## Quickstart
 
 ```ts
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 const pty = await createPtyClient({
   provider: 'claude',         // or 'copilot'
@@ -1734,7 +1734,7 @@ bytes to a renderer of your choice. The library does not render — that's
 the consumer's job (xterm.js, custom TUI, anything).
 
 ```ts
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 const pty = await createPtyClient({
   provider: 'claude',         // or 'copilot'
@@ -1848,7 +1848,7 @@ Insert this entry above the existing `## 0.5.0 — 2026-04-29` heading:
 - Error types: `PtyError`, `PtyDependencyMissingError`,
   `PtyBinaryNotFoundError`, `PtySpawnError` — with `code` discriminator
   and `cause` chaining.
-- New `./pty` subpath: `import { createPtyClient } from '@baoduy2412/ai-cli-client/pty'`.
+- New `./pty` subpath: `import { createPtyClient } from '@drunkcoding/ai-cli-clients/pty'`.
 - Examples under `examples/pty/`: `basic-claude.ts`, `basic-copilot.ts`,
   `electron-main.ts`.
 - Consumer guide at `docs/pty-transport.md`.

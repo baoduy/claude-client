@@ -1,7 +1,7 @@
 # Provider capabilities
 
 This document tracks the differences between the Claude and Copilot
-providers exposed by `@baoduy2412/ai-cli-client`. The `AICliClient`
+providers exposed by `@drunkcoding/ai-cli-clients`. The `AICliClient`
 interface (the unified API) covers the surface both providers can be
 made to share, including optional capability slots that some providers
 fill and others omit. Anything listed below as provider-specific is
@@ -190,7 +190,7 @@ namespaces where "method not found" responses (older CLI) become
 Tree-shake-friendly subpath import:
 
 ```ts
-import { CopilotPlanApi } from '@baoduy2412/ai-cli-client/copilot/namespaces';
+import { CopilotPlanApi } from '@drunkcoding/ai-cli-clients/copilot/namespaces';
 ```
 
 | Namespace | Methods | Stability |

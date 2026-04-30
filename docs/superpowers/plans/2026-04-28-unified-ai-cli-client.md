@@ -734,7 +734,7 @@ Expected output: a list of event names Claude emits (turn_start, turn_end, outpu
 # Provider capabilities
 
 This document tracks the differences between the Claude and Copilot providers
-exposed by `@baoduy2412/ai-cli-client`. The `AICliClient` interface (the
+exposed by `@drunkcoding/ai-cli-clients`. The `AICliClient` interface (the
 unified API) covers only the surface both providers support identically.
 Anything listed below as provider-specific is intentionally not on the
 unified interface.
@@ -879,7 +879,7 @@ import {
   createAICliClient,
   type AICliClient,
   type AICliClientConfig,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const config: AICliClientConfig = {
   provider: 'claude', // or 'copilot'
@@ -903,7 +903,7 @@ client. If you need to attach event listeners *before* startup events fire
 (e.g. Copilot's `ready` event), construct the concrete class directly:
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients';
 const client = new CopilotClient({ cwd: process.cwd() });
 client.on('ready', () => console.log('ready'));
 await client.start();
@@ -921,7 +921,7 @@ Expected: at least 1.
 - [ ] **Step 4: Verify the README's example imports use the published surface**
 
 ```bash
-grep -E "from '@baoduy2412/ai-cli-client" README.md
+grep -E "from '@drunkcoding/ai-cli-clients" README.md
 ```
 
 Every match must reference an export that exists. The new section uses only

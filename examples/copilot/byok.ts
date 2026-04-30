@@ -1,4 +1,4 @@
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const anthropicKey = process.env.ANTHROPIC_API_KEY;

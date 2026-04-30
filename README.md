@@ -1,11 +1,11 @@
-# @baoduy2412/ai-cli-client
+# @drunkcoding/ai-cli-clients
 
 Node.js client for controlling Claude Code and GitHub Copilot CLIs from your application.
 
 ## Install
 
 ```bash
-npm install @baoduy2412/ai-cli-client
+npm install @drunkcoding/ai-cli-clients
 ```
 
 ## Requirements
@@ -70,7 +70,7 @@ import {
   createAICliClient,
   type AICliClient,
   type AICliClientConfig,
-} from '@baoduy2412/ai-cli-client';
+} from '@drunkcoding/ai-cli-clients';
 
 const config: AICliClientConfig = {
   provider: 'claude', // or 'copilot'
@@ -88,7 +88,7 @@ The `AICliClient` interface only declares the surface both providers support ide
 **Auto-start trade-off.** `createAICliClient(config)` returns a *started* client. If you need to attach event listeners *before* startup events fire (e.g. Copilot's `ready` event), construct the concrete class directly:
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients';
 const client = new CopilotClient({ cwd: process.cwd() });
 client.on('ready', () => console.log('ready'));
 await client.start();
@@ -99,7 +99,7 @@ await client.start();
 `ClaudeClient.init(config)` starts a persistent stream-json process and returns a fully-started client. All structured methods live directly on the returned instance.
 
 ```ts
-import { ClaudeClient } from '@baoduy2412/ai-cli-client';
+import { ClaudeClient } from '@drunkcoding/ai-cli-clients';
 
 const client = await ClaudeClient.init({
   cwd: process.cwd(),
@@ -148,7 +148,7 @@ Methods on `ClaudeClient`:
 ## Copilot
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client/copilot';
+import { CopilotClient } from '@drunkcoding/ai-cli-clients/copilot';
 
 async function main() {
   const client = new CopilotClient({ cwd: process.cwd() });
@@ -254,7 +254,7 @@ bytes to a renderer of your choice. The library does not render — that's
 the consumer's job (xterm.js, custom TUI, anything).
 
 ```ts
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 const pty = await createPtyClient({
   provider: 'claude',         // or 'copilot'

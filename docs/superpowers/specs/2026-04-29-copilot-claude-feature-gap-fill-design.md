@@ -3,7 +3,7 @@
 **Status:** Approved (brainstorming) — pending implementation plan
 **Author:** Steven Hoang
 **Date:** 2026-04-29
-**Target package:** `@baoduy2412/ai-cli-client` (currently 1.0.0)
+**Target package:** `@drunkcoding/ai-cli-clients` (currently 1.0.0)
 **Target SDK:** `@github/copilot-sdk@0.3.0`
 **Phasing:** 1.1.0 → 1.2.0 → 1.3.0 (three minor releases)
 

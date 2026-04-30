@@ -14,7 +14,7 @@ PTY mode requires `node-pty`, which is an **optional peer dependency**
 (it's a native module — most consumers don't need it):
 
 ```bash
-npm install @baoduy2412/ai-cli-client node-pty
+npm install @drunkcoding/ai-cli-clients node-pty
 ```
 
 For Electron apps, rebuild `node-pty` against your Electron version:
@@ -29,7 +29,7 @@ If `node-pty` is missing at runtime, `createPtyClient` throws
 ## Quickstart
 
 ```ts
-import { createPtyClient } from '@baoduy2412/ai-cli-client';
+import { createPtyClient } from '@drunkcoding/ai-cli-clients';
 
 const pty = await createPtyClient({
   provider: 'claude',         // or 'copilot'

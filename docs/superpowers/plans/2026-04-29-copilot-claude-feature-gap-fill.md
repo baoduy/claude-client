@@ -3038,7 +3038,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 test('subpath export ./copilot/namespaces resolves and re-exports all 10 wrapper classes', async () => {
-  const mod = await import('@baoduy2412/ai-cli-client/copilot/namespaces');
+  const mod = await import('@drunkcoding/ai-cli-clients/copilot/namespaces');
   for (const k of [
     'CopilotPlanApi','CopilotSkillsApi','CopilotAgentApi','CopilotHistoryApi','CopilotUsageApi',
     'CopilotShellApi','CopilotWorkspacesApi','CopilotNameApi','CopilotInstructionsApi','CopilotMcpApi',
@@ -3048,7 +3048,7 @@ test('subpath export ./copilot/namespaces resolves and re-exports all 10 wrapper
 });
 ```
 
-(This requires the package to be installed locally for the import to resolve. If `@baoduy2412/ai-cli-client` isn't aliased, use a relative import path equivalent: `'../../../dist/esm/copilot/namespaces/index.js'`.)
+(This requires the package to be installed locally for the import to resolve. If `@drunkcoding/ai-cli-clients` isn't aliased, use a relative import path equivalent: `'../../../dist/esm/copilot/namespaces/index.js'`.)
 
 - [ ] **Step 2: Verify FAIL**.
 
@@ -3191,7 +3191,7 @@ Add an "Experimental APIs" section listing the @experimental namespaces with the
 ### Added
 - `CopilotClient` now exposes 10 namespace wrappers for upstream `session.rpc.*`:
   `plan`, `skills`, `agent`, `history`, `usage`, `shell`, `workspaces`, `name`, `instructions`, `mcp` (with nested `mcp.oauth.login`).
-- Subpath export `@baoduy2412/ai-cli-client/copilot/namespaces` for tree-shake-friendly imports of wrapper classes and types.
+- Subpath export `@drunkcoding/ai-cli-clients/copilot/namespaces` for tree-shake-friendly imports of wrapper classes and types.
 - `SessionNotStartedError`, `CopilotRpcError`, `CopilotExperimentalUnavailableError`.
 - `test/unit/capability-matrix.test.mjs` — CI guard that asserts `docs/provider-capabilities.md` matches runtime `client.capabilities`.
 

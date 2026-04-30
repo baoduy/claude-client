@@ -104,7 +104,7 @@ export class CopilotTransport {
       throw new CopilotFeatureUnsupportedError(
         'transport',
         "CopilotClient does not support transport: 'pty'. " +
-        "Use createPtyClient({ provider: 'copilot', ... }) from '@baoduy2412/ai-cli-client' instead.",
+        "Use createPtyClient({ provider: 'copilot', ... }) from '@drunkcoding/ai-cli-clients' instead.",
       );
     }
 

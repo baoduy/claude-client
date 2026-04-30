@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-30
 **Status:** Approved for implementation
-**Topic:** GitHub Actions workflows for CI and npm release of `@baoduy2412/ai-cli-client`
+**Topic:** GitHub Actions workflows for CI and npm release of `@drunkcoding/ai-cli-clients`
 
 ## Context
 
@@ -83,7 +83,7 @@ semantic-version on the next run.
    sees no tags, starts from `0.0.0`, and computes a version lower than what
    already exists on npm — a guaranteed `npm publish` conflict on first run.
 2. Add the `NPM_TOKEN` secret to GitHub repository secrets. Granular access
-   token, scoped to `@baoduy2412/ai-cli-client`, "Publish + read" access.
+   token, scoped to `@drunkcoding/ai-cli-clients`, "Publish + read" access.
 3. Confirm Settings → Actions → General → Workflow permissions allows
    "Read and write" for `GITHUB_TOKEN`. (Per-job `permissions:` blocks are
    still set explicitly in each workflow as defense-in-depth.)
