@@ -1,7 +1,13 @@
 import type { TurnHandleBase } from './turn-handle.js';
 import type {
   AICliCapabilities,
+  ApproveDecision,
+  DetailedStatus,
+  LegacyPermissionMode,
+  PendingAction,
+  PendingRequest,
   PermissionMode,
+  QuestionResponse,
   SendInput,
   SupportedModelsResponse,
   TurnSnapshot,
@@ -86,7 +92,20 @@ export interface AICliClient {
   // CopilotClient implements none.
 
   setModel?(model: string): Promise<void>;
-  setPermissionMode?(mode: PermissionMode): Promise<void>;
+  setPermissionMode?(mode: PermissionMode | LegacyPermissionMode): Promise<void>;
   setMaxThinkingTokens?(tokens: number): Promise<void>;
   listSupportedModels?(timeout?: number): Promise<SupportedModelsResponse>;
+
+  // ─── Optional: interactive approval (Phase 1.2) ───────────────────────────
+  // Implementations may omit these; presence corresponds to
+  // `capabilities.interactiveApproval`. Both ClaudeClient and CopilotClient
+  // implement them; thin generic consumers should `?.`-call.
+
+  getOpenRequests?(): PendingRequest[];
+  approveRequest?(id: string, decision?: ApproveDecision): Promise<void>;
+  denyRequest?(id: string, feedback?: string): Promise<void>;
+  answerQuestion?(id: string, response: QuestionResponse): Promise<void>;
+  getPendingAction?(): PendingAction | null;
+  interruptTurn?(turnId?: string): Promise<void>;
+  getDetailedStatus?(): DetailedStatus;
 }
