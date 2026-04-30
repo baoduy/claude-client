@@ -32,6 +32,18 @@ import type {
   LegacyPermissionMode,
   DetailedStatus,
 } from '../unified/index.js';
+import {
+  CopilotPlanApi,
+  CopilotSkillsApi,
+  CopilotAgentApi,
+  CopilotHistoryApi,
+  CopilotUsageApi,
+  CopilotShellApi,
+  CopilotWorkspacesApi,
+  CopilotNameApi,
+  CopilotInstructionsApi,
+  CopilotMcpApi,
+} from './namespaces/index.js';
 
 export interface CopilotClientInternals {
   /** Test injection point for the SDK constructor. */
@@ -75,6 +87,18 @@ export class CopilotClient extends EventEmitter implements AICliClient {
   private readonly transport: CopilotTransport;
   private readonly queue: PendingRequestQueue;
 
+  // Bonus RPC namespace wrappers (Phase 1.3 — C13).
+  readonly plan: CopilotPlanApi;
+  readonly skills: CopilotSkillsApi;
+  readonly agent: CopilotAgentApi;
+  readonly history: CopilotHistoryApi;
+  readonly usage: CopilotUsageApi;
+  readonly shell: CopilotShellApi;
+  readonly workspaces: CopilotWorkspacesApi;
+  readonly name: CopilotNameApi;
+  readonly instructions: CopilotInstructionsApi;
+  readonly mcp: CopilotMcpApi;
+
   private _status: CopilotStatus = 'idle';
   private _currentTurn: CopilotTurnHandle | null = null;
   private _history: CopilotTurnSnapshot[] = [];
@@ -95,6 +119,20 @@ export class CopilotClient extends EventEmitter implements AICliClient {
       queue: this.queue,
       GhClientCtor: internals?.GhClientCtor,
     });
+
+    // Lazy session getter — reads from the transport at method-call time.
+    const sessionGetter = () => (this.transport as any).session ?? null;
+
+    this.plan = new CopilotPlanApi(sessionGetter);
+    this.skills = new CopilotSkillsApi(sessionGetter);
+    this.agent = new CopilotAgentApi(sessionGetter);
+    this.history = new CopilotHistoryApi(sessionGetter);
+    this.usage = new CopilotUsageApi(sessionGetter);
+    this.shell = new CopilotShellApi(sessionGetter);
+    this.workspaces = new CopilotWorkspacesApi(sessionGetter);
+    this.name = new CopilotNameApi(sessionGetter);
+    this.instructions = new CopilotInstructionsApi(sessionGetter);
+    this.mcp = new CopilotMcpApi(sessionGetter);
   }
 
   async start(): Promise<void> {
