@@ -30,7 +30,7 @@ intentionally not on the unified interface.
 | `isProcessing`    |   ✅   |   ✅    |  |
 | `getCurrentTurn`  |   ✅   |   ✅    | returns `TurnSnapshot \| null` |
 | `getHistory`      |   ✅   |   ✅    | returns `TurnSnapshot[]` |
-| `on` / `off`      |   ✅   |   ✅    | strongly typed over `UnifiedEventMap` (12 events) |
+| `on` / `off`      |   ✅   |   ✅    | strongly typed over `UnifiedEventMap` (15 events) |
 
 ### Optional capabilities (Group E)
 
@@ -121,7 +121,7 @@ Provider-specific extras stay on the concrete snapshot:
 
 ## Events
 
-All 12 events in `UnifiedEventMap` are available on both providers via
+All 15 events in `UnifiedEventMap` are available on both providers via
 `AICliClient.on()`. Provider-specific events stay on the concrete classes.
 
 ### Unified vocabulary
