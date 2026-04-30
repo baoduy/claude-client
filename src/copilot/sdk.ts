@@ -182,3 +182,14 @@ export { GhCopilotClient, GhCopilotSession, ghApproveAll as approveAll };
 // Convenience type aliases used throughout the adapter layer.
 export type GhSession = GhCopilotSession;
 export type GhClient = GhCopilotClient;
+
+/**
+ * Plan-mode RPC types. The SDK 0.3.0 declares `PlanReadResult` and
+ * `PlanUpdateRequest` in `generated/rpc.d.ts` but does not re-export them
+ * through its public barrel (`index.d.ts`). They leak transitively via
+ * `CopilotSession.rpc.plan`, so we derive them from that surface using the
+ * same indirection pattern as `SessionHooks` / `UserInputHandler`.
+ */
+type _SessionRpc = GhCopilotSession["rpc"];
+export type PlanReadResult = Awaited<ReturnType<_SessionRpc["plan"]["read"]>>;
+export type PlanUpdateRequest = Parameters<_SessionRpc["plan"]["update"]>[0];
