@@ -1,3 +1,14 @@
+import type {
+  TurnSnapshot,
+} from '../unified/types.js';
+import type {
+  SessionHooks,
+  MCPServerConfig,
+  PermissionHandler,
+  ElicitationHandler,
+  UserInputHandler,
+} from './sdk.js';
+
 /** Configuration for CopilotClient. Matches the spec §5 verbatim. */
 export interface CopilotClientConfig {
   cwd: string;
@@ -40,19 +51,42 @@ export interface CopilotClientConfig {
 
   // Reserved for Phase 2; throws if used in Phase 1
   transport?: 'programmatic' | 'pty';
+
+  // Lifecycle hooks — passed straight to SDK createSession
+  hooks?: SessionHooks;
+
+  // MCP servers — passed straight to SDK createSession.
+  // Supports both stdio (`command`/`args`) and http/sse (`type: 'http'`, `url`)
+  // variants per the SDK's MCPServerConfig union.
+  mcpServers?: Record<string, MCPServerConfig>;
+
+  // Optional user-provided callbacks for permission/elicitation/userInput
+  // requests. When set, the user's handler runs first; if it throws
+  // `RequestNotHandled` (from `./errors.js`), the request falls through to
+  // the internal `PendingRequestQueue` for pull-style API resolution
+  // (`getOpenRequests` / `approveRequest` / `denyRequest` / `answerQuestion`).
+  onPermissionRequest?: PermissionHandler;
+  onElicitationRequest?: ElicitationHandler;
+  onUserInputRequest?: UserInputHandler;
 }
 
-/** Cumulative snapshot of a Copilot turn. */
-export interface CopilotTurnSnapshot {
-  turnId: string;
-  status: 'queued' | 'running' | 'completed' | 'error';
-  text: string;
-  reasoningText: string;
-  toolCalls: CopilotToolCall[];
-  usage: CopilotUsage | null;
-  startedAt: number;
-  endedAt: number | null;
-  error: { name: string; message: string } | null;
+/**
+ * Cumulative snapshot of a Copilot turn.
+ *
+ * Extends the unified `TurnSnapshot` so consumers writing
+ * provider-agnostic code see a consistent shape across providers.
+ * Copilot-specific richness (raw SDK tool calls, raw usage payload) is
+ * preserved on dedicated fields.
+ */
+export interface CopilotTurnSnapshot extends TurnSnapshot {
+  // Inherited from TurnSnapshot:
+  //   id, status, text, reasoning?, toolUses, toolResults, usage?,
+  //   error?, startedAt, completedAt?
+
+  /** Raw SDK tool-call records (preserves shape for narrowed access). */
+  copilotToolCalls: CopilotToolCall[];
+  /** Raw SDK usage payload, preserved for narrowed access. */
+  copilotUsageRaw?: CopilotUsage;
 }
 
 /** Per-step update pushed onto the TurnHandle iterator. */

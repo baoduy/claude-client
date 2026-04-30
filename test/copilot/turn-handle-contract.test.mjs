@@ -4,7 +4,12 @@ import { CopilotTurnHandle } from '../../dist/esm/copilot/turn-handle.js';
 import { TurnHandle as ClaudeTurnHandle } from '../../dist/esm/claude/turn-handle.js';
 
 function copilotSeed() {
-  return { turnId: 't', status: 'running', text: '', reasoningText: '', toolCalls: [], usage: null, startedAt: 0, endedAt: null, error: null };
+  return {
+    id: 'copilot-t', status: 'pending', text: '', reasoning: undefined,
+    toolUses: [], toolResults: [], usage: undefined, error: undefined,
+    startedAt: 0, completedAt: undefined,
+    copilotToolCalls: [], copilotUsageRaw: undefined,
+  };
 }
 
 test('CopilotTurnHandle satisfies TurnHandleBase contract', () => {

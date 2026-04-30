@@ -9,6 +9,7 @@ import {
   CopilotInterruptedError,
   CopilotPermissionDeniedError,
 } from '../../dist/esm/copilot/errors.js';
+import { RequestNotHandled } from '../../dist/esm/copilot/index.js';
 
 test('every Copilot error subclass extends CopilotError and Error, with correct .name', () => {
   const cases = [
@@ -32,4 +33,11 @@ test('CopilotFeatureUnsupportedError exposes the unsupported field name', () => 
   const err = new CopilotFeatureUnsupportedError('mode', 'Copilot SDK 0.4.x does not yet support --mode passthrough');
   assert.equal(err.feature, 'mode');
   assert.match(err.message, /mode/);
+});
+
+test('RequestNotHandled is a sentinel that handlers throw to fall through', () => {
+  const e = new RequestNotHandled();
+  assert.ok(e instanceof Error);
+  assert.equal(e.name, 'RequestNotHandled');
+  assert.match(e.message, /not handled|fall.through/i);
 });

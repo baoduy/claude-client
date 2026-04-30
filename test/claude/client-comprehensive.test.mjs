@@ -172,11 +172,11 @@ test('sessionId is extracted from first message with session_id', () => {
 // Stream Event Tests
 // ============================================================================
 
-test('text_delta events are emitted for content', () => {
+test('text events are emitted for content', () => {
   const client = createTestClient();
-  const deltas = [];
+  const chunks = [];
 
-  client.on('text_delta', (text) => deltas.push(text));
+  client.on('text', (text) => chunks.push(text));
 
   client.handleStreamEvent({
     type: 'content_block_delta',
@@ -188,14 +188,14 @@ test('text_delta events are emitted for content', () => {
     delta: { type: 'text_delta', text: ' world' }
   });
 
-  assert.deepEqual(deltas, ['Hello', ' world']);
+  assert.deepEqual(chunks, ['Hello', ' world']);
 });
 
-test('thinking_delta events are emitted', () => {
+test('reasoning events are emitted', () => {
   const client = createTestClient();
   const thinking = [];
 
-  client.on('thinking_delta', (text) => thinking.push(text));
+  client.on('reasoning', (text) => thinking.push(text));
 
   client.handleStreamEvent({
     type: 'content_block_delta',
@@ -205,11 +205,11 @@ test('thinking_delta events are emitted', () => {
   assert.deepEqual(thinking, ['Let me think...']);
 });
 
-test('text_accumulated contains running total', () => {
+test('text events fire per chunk in stream order', () => {
   const client = createTestClient();
-  const accumulated = [];
+  const chunks = [];
 
-  client.on('text_accumulated', (text) => accumulated.push(text));
+  client.on('text', (text) => chunks.push(text));
 
   client.handleStreamEvent({
     type: 'content_block_delta',
@@ -226,14 +226,14 @@ test('text_accumulated contains running total', () => {
     delta: { type: 'text_delta', text: ' Three' }
   });
 
-  assert.deepEqual(accumulated, ['One', 'One Two', 'One Two Three']);
+  assert.deepEqual(chunks, ['One', ' Two', ' Three']);
 });
 
-test('message_start resets accumulators', () => {
+test('message_start resets internal accumulators between messages', () => {
   const client = createTestClient();
-  const accumulated = [];
+  const chunks = [];
 
-  client.on('text_accumulated', (text) => accumulated.push(text));
+  client.on('text', (text) => chunks.push(text));
 
   // First message
   client.handleStreamEvent({
@@ -241,19 +241,21 @@ test('message_start resets accumulators', () => {
     delta: { type: 'text_delta', text: 'First' }
   });
 
-  // New message starts
+  // New message starts (resets _accumulatedText)
   client.handleStreamEvent({
     type: 'message_start',
     message: {}
   });
 
-  // Second message content
+  // Second message content — accumulator was reset, so the chunk is fresh
   client.handleStreamEvent({
     type: 'content_block_delta',
     delta: { type: 'text_delta', text: 'Second' }
   });
 
-  assert.deepEqual(accumulated, ['First', 'Second']);
+  assert.deepEqual(chunks, ['First', 'Second']);
+  // Internal accumulator should reflect only the second message
+  assert.equal(client._accumulatedText, 'Second');
 });
 
 // ============================================================================
@@ -362,7 +364,7 @@ test('pendingAction is set for AskUserQuestion', () => {
     }
   });
 
-  const action = client.getPendingAction();
+  const action = client.getPendingActionDetailed();
   assert.equal(action.type, 'question');
   assert.equal(action.question, 'What do you prefer?');
   assert.deepEqual(action.options, ['A', 'B']);

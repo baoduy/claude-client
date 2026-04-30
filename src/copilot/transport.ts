@@ -1,11 +1,33 @@
 import { randomUUID } from 'crypto';
 import type { CopilotClientConfig } from './types.js';
-import type { SessionConfig, ResumeSessionConfig, CopilotClientOptions } from './sdk.js';
-import { CopilotFeatureUnsupportedError, CopilotAuthError, CopilotLaunchError } from './errors.js';
+import type {
+  SessionConfig,
+  ResumeSessionConfig,
+  CopilotClientOptions,
+  PermissionHandler,
+  ElicitationHandler,
+  UserInputHandler,
+} from './sdk.js';
+import {
+  CopilotFeatureUnsupportedError,
+  CopilotAuthError,
+  CopilotLaunchError,
+  RequestNotHandled,
+} from './errors.js';
 import { GhCopilotClient, approveAll } from './sdk.js';
+import type { PendingRequestQueue } from './pending-queue.js';
 
 export interface CopilotTransportOptions {
   config: CopilotClientConfig;
+  /**
+   * Pending-request queue for pull-style approval handling. When provided,
+   * permission / elicitation / userInput requests fall through to this
+   * queue if the user-provided handler is absent or throws
+   * `RequestNotHandled`. When omitted (older callers / tests that haven't
+   * adopted the queue), the transport uses `approveAll` as the default
+   * permission handler and leaves elicitation/userInput unset.
+   */
+  queue?: PendingRequestQueue;
   /** Injection point for tests; defaults to the real SDK class. */
   GhClientCtor?: typeof GhCopilotClient;
 }
@@ -13,6 +35,7 @@ export interface CopilotTransportOptions {
 export class CopilotTransport {
   private readonly config: CopilotClientConfig;
   private readonly GhClientCtor: typeof GhCopilotClient;
+  private readonly queue: PendingRequestQueue | undefined;
   private gh: GhCopilotClient | null = null;
   session: any = null;
   sessionId: string | null = null;
@@ -20,6 +43,7 @@ export class CopilotTransport {
   constructor(opts: CopilotTransportOptions) {
     this.config = opts.config;
     this.GhClientCtor = opts.GhClientCtor ?? GhCopilotClient;
+    this.queue = opts.queue;
   }
 
   async start(): Promise<void> {
@@ -48,6 +72,20 @@ export class CopilotTransport {
       const msg = err?.message ?? String(err);
       if (/auth|token|credential/i.test(msg)) throw new CopilotAuthError(msg);
       throw new CopilotLaunchError(msg);
+    }
+  }
+
+  /**
+   * Tear down the active session: abort any in-flight turn, then disconnect
+   * the session. Errors from either step are swallowed since the SDK may not
+   * support them in every state. Called by `CopilotClient.close()` before
+   * `stop()` to drive the full lifecycle exit sequence.
+   */
+  async stopSession(): Promise<void> {
+    if (this.session) {
+      try { await this.session.abort?.(); } catch { /* swallow */ }
+      try { await this.session.disconnect?.(); } catch { /* swallow */ }
+      this.session = null;
     }
   }
 
@@ -126,10 +164,18 @@ export class CopilotTransport {
     const c = this.config;
     const cfg: SessionConfig = {
       sessionId,
-      // onPermissionRequest is REQUIRED by the SDK. Default to approve-all when the caller hasn't
-      // configured permissions explicitly. C7 will refine this once the permission flow is wired.
-      onPermissionRequest: approveAll,
+      // onPermissionRequest is REQUIRED by the SDK. Chain user-provided
+      // handler → queue when the queue is present; fall back to approve-all
+      // when neither is configured (legacy default).
+      onPermissionRequest: this.makePermissionHandler(),
     };
+
+    // Elicitation/userInput handlers — only install when the queue is wired.
+    // Otherwise the SDK will surface its built-in defaults.
+    const elic = this.makeElicitationHandler();
+    if (elic) cfg.onElicitationRequest = elic;
+    const userIn = this.makeUserInputHandler();
+    if (userIn) cfg.onUserInputRequest = userIn;
 
     if (c.model) cfg.model = c.model;
 
@@ -152,13 +198,88 @@ export class CopilotTransport {
     if (c.availableTools && c.availableTools.length > 0) cfg.availableTools = c.availableTools;
     if (c.excludedTools  && c.excludedTools.length  > 0) cfg.excludedTools  = c.excludedTools;
 
+    // Lifecycle hooks — forwarded verbatim to the SDK when provided.
+    if (c.hooks) cfg.hooks = c.hooks;
+
+    // MCP servers — forwarded verbatim to the SDK when provided.
+    if (c.mcpServers) cfg.mcpServers = c.mcpServers;
+
     return cfg;
   }
 
   /** ResumeSessionConfig for resumeSession (subset of SessionConfig). */
   private buildResumeSessionConfig(): ResumeSessionConfig {
-    return {
-      onPermissionRequest: approveAll,
+    const cfg: ResumeSessionConfig = {
+      onPermissionRequest: this.makePermissionHandler(),
+    };
+    const elic = this.makeElicitationHandler();
+    if (elic) cfg.onElicitationRequest = elic;
+    const userIn = this.makeUserInputHandler();
+    if (userIn) cfg.onUserInputRequest = userIn;
+    return cfg;
+  }
+
+  /**
+   * Build the chained permission handler. User-provided handler runs first;
+   * if it throws `RequestNotHandled`, the request falls through to the
+   * queue. When neither user handler nor queue is present, default to
+   * `approveAll` for backward compatibility.
+   */
+  private makePermissionHandler(): PermissionHandler {
+    const userPerm = this.config.onPermissionRequest;
+    const queue = this.queue;
+    if (!userPerm && !queue) return approveAll;
+    return async (req, ctx) => {
+      if (userPerm) {
+        try {
+          return await userPerm(req, ctx);
+        } catch (e) {
+          if (!(e instanceof RequestNotHandled)) throw e;
+        }
+      }
+      if (queue) {
+        return queue.registerPermission(req, ctx.sessionId);
+      }
+      return approveAll(req, ctx);
+    };
+  }
+
+  private makeElicitationHandler(): ElicitationHandler | undefined {
+    const userElic = this.config.onElicitationRequest;
+    const queue = this.queue;
+    if (!userElic && !queue) return undefined;
+    return async (ctx) => {
+      if (userElic) {
+        try {
+          return await userElic(ctx);
+        } catch (e) {
+          if (!(e instanceof RequestNotHandled)) throw e;
+        }
+      }
+      if (queue) {
+        return queue.registerElicitation(ctx);
+      }
+      // Should not happen given the early return; satisfy TS exhaustiveness.
+      return { action: 'cancel' };
+    };
+  }
+
+  private makeUserInputHandler(): UserInputHandler | undefined {
+    const userInput = this.config.onUserInputRequest;
+    const queue = this.queue;
+    if (!userInput && !queue) return undefined;
+    return async (req, ctx) => {
+      if (userInput) {
+        try {
+          return await userInput(req, ctx);
+        } catch (e) {
+          if (!(e instanceof RequestNotHandled)) throw e;
+        }
+      }
+      if (queue) {
+        return queue.registerUserInput(req, ctx.sessionId);
+      }
+      return { answer: '', wasFreeform: false };
     };
   }
 }

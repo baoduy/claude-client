@@ -37,6 +37,22 @@ async function withCopilotStartStub(fn) {
   }
 }
 
+test('createAICliClient returns a client with capabilities', async () => {
+  await withClaudeInitStub(async () => {
+    const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });
+    assert.ok(client.capabilities, 'client.capabilities should exist');
+    assert.ok(['none', 'partial', 'full'].includes(client.capabilities.richContent));
+    assert.equal(client.capabilities.setModel, true);
+  });
+
+  await withCopilotStartStub(async () => {
+    const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
+    assert.ok(client.capabilities);
+    // Task A5: Copilot now supports setModel.
+    assert.equal(client.capabilities.setModel, true);
+  });
+});
+
 test('createAICliClient dispatches to ClaudeClient for provider: "claude"', async () => {
   await withClaudeInitStub(async (getStub) => {
     const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });

@@ -16,7 +16,50 @@ npm install @baoduy2412/ai-cli-client
 
 ## Common API
 
-Both `ClaudeClient` and `CopilotClient` share a consistent surface. `client.send(prompt)` returns a `TurnHandle` with a `.updates()` async iterator for streamed progress and a `.done` Promise that resolves to the final snapshot. Both clients are also event emitters — use `.on(event, handler)` for lower-level protocol events. `client.getHistory()` returns completed turn snapshots for the session. Provider-specific extensions (e.g. `getOpenRequests()` on Claude) are documented in the per-provider sections below.
+Both `ClaudeClient` and `CopilotClient` share a consistent surface. `client.send(input)` returns a `TurnHandle` with a `.updates()` async iterator for streamed progress and a `.done` Promise that resolves to the final snapshot. `input` accepts a plain `string`, a `{ text }` wrapper, or `{ content: ContentBlock[] }` for rich content (multi-block, images on supported providers). Both clients are also event emitters — use `.on(event, handler)` for streaming protocol events. `client.getHistory()` returns completed turn snapshots for the session as unified `TurnSnapshot[]`. Provider-specific extensions (e.g. `getOpenRequests()` on Claude) are documented in the per-provider sections below.
+
+### Unified events
+
+Both providers emit the same shared event vocabulary:
+
+| Event | Payload | Purpose |
+| --- | --- | --- |
+| `ready` | `()` | Session initialized |
+| `text` | `(chunk: string)` | Streaming text delta |
+| `text_done` | `(text: string)` | Final accumulated text for the turn (fires once if any text was emitted) |
+| `reasoning` | `(chunk: string)` | Streaming reasoning/thinking delta |
+| `reasoning_done` | `(text: string)` | Final reasoning, same semantics as `text_done` |
+| `tool_use_start` | `(event)` | Tool invocation begun |
+| `tool_result` | `(event)` | Tool execution result received |
+| `usage_update` | `(usage)` | `{ inputTokens, outputTokens }` snapshot |
+| `status_change` | `(status)` | `'idle' | 'running' | 'error'` |
+| `result` | `(snapshot)` | Final `TurnSnapshot` for the turn |
+| `error` | `(err)` | Provider error |
+| `closed` | `(exitCode)` | Session closed; terminal — no events fire after this |
+
+Provider-specific events (Claude's `stream_event`, `control_request`, `mcp_message`, etc.) remain on the concrete classes for narrowed access.
+
+### Feature detection via `capabilities`
+
+Some methods are available only on certain providers. Use the runtime `capabilities` map for feature detection, or rely on TypeScript optional chaining:
+
+```ts
+if (client.capabilities.setModel) {
+  await client.setModel!('claude-opus-4-7');
+}
+// or
+await client.setModel?.('claude-opus-4-7');
+```
+
+`capabilities.richContent` is `true` when `send()` accepts non-text content blocks. On Copilot, `richContent` is `false`; image content blocks throw `UnsupportedContentError` synchronously.
+
+For provider-specific access (Claude-only methods), narrow via the `provider` discriminant:
+
+```ts
+if (client.provider === 'claude') {
+  await client.approveRequest(id, { always: true });
+}
+```
 
 ## Unified API
 
@@ -236,6 +279,29 @@ For Electron, rebuild against your Electron version:
 See [`docs/pty-transport.md`](./docs/pty-transport.md) for the full
 guide, the [Electron IPC pattern](./examples/pty/electron-main.ts), and
 configuration / troubleshooting tables.
+
+## Experimental APIs
+
+Phase 1.3 (`v1.3.0`) added 10 namespace wrappers on `CopilotClient`
+that map to `@github/copilot-sdk`'s `session.rpc.*` surface. Five
+of them are `@experimental` upstream and may change shape in minor
+SDK releases:
+
+- `client.skills.{list, enable, disable, reload}`
+- `client.agent.{list, getCurrent, select, deselect, reload}`
+- `client.history.{compact, truncate}`
+- `client.usage.getMetrics`
+- `client.mcp.{list, enable, disable, reload}` (and nested `mcp.oauth.login`)
+
+If your CLI version doesn't recognize an experimental method, the
+wrapper throws `CopilotExperimentalUnavailableError` with the namespace
+and method names — caller code can branch on this to provide graceful
+fallbacks.
+
+Stable namespaces (`plan`, `shell`, `workspaces`, `name`, `instructions`)
+are pure passthroughs and follow the SDK's stable contract.
+
+See [`docs/provider-capabilities.md`](docs/provider-capabilities.md) for the full method list.
 
 ## Versioning
 

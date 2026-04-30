@@ -21,7 +21,7 @@ async function main() {
 
   await client1.start();
 
-  client1.on('text_delta', (text) => process.stdout.write(text));
+  client1.on('text', (text) => process.stdout.write(text));
   client1.on('result', () => console.log('\n'));
 
   console.log('=== Client 1: Starting session ===');
@@ -44,7 +44,7 @@ async function main() {
 
   await client2.start();
 
-  client2.on('text_delta', (text) => process.stdout.write(text));
+  client2.on('text', (text) => process.stdout.write(text));
   client2.on('result', () => console.log('\n'));
 
   console.log('=== Client 2: Resuming session ===');

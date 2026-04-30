@@ -43,8 +43,10 @@ test('ClaudeClient streams updates without polling', async () => {
     uuid: 'stream-1',
     event: { type: 'message_start', message: {} }
   });
-  client.emit('text_accumulated', 'Hello');
-  client.emit('thinking_accumulated', 'Thinking');
+  client._accumulatedText = 'Hello';
+  client.emit('text', 'Hello');
+  client._accumulatedThinking = 'Thinking';
+  client.emit('reasoning', 'Thinking');
 
   const snapshot = turn.current();
   assert.equal(snapshot.status, 'running');
@@ -111,19 +113,19 @@ test('ClaudeClient exposes and resolves tool approval requests', async () => {
     }
   });
 
-  const openRequests = client.getOpenRequests();
+  const openRequests = client.getOpenRequestsDetailed();
   assert.equal(openRequests.length, 1);
   assert.equal(openRequests[0].kind, 'tool_approval');
   assert.equal(openRequests[0].toolName, 'Bash');
   assert.equal(turn.getOpenRequests().length, 1);
 
-  await client.approveRequest(openRequests[0].id, { always: true });
+  await client.approveRequestDetailed(openRequests[0].id, { always: true });
 
   assert.equal(controlResponses.length, 1);
   assert.equal(controlResponses[0].requestId, 'sdk-req-1');
   assert.equal(controlResponses[0].responseData.behavior, 'allow');
   assert.equal(controlResponses[0].responseData.toolUseID, 'tool-1');
-  assert.equal(client.getOpenRequests().length, 0);
+  assert.equal(client.getOpenRequestsDetailed().length, 0);
 });
 
 test('ClaudeClient answers AskUserQuestion requests', async () => {
@@ -155,11 +157,11 @@ test('ClaudeClient answers AskUserQuestion requests', async () => {
     }
   });
 
-  const request = client.getOpenRequests()[0];
+  const request = client.getOpenRequestsDetailed()[0];
   assert.equal(request.kind, 'question');
   assert.equal(request.questions.length, 2);
 
-  await client.answerQuestion(request.id, {
+  await client.answerQuestionDetailed(request.id, {
     Color: 'Blue',
     Pets: ['Cat', 'Dog']
   });
@@ -173,7 +175,7 @@ test('ClaudeClient answers AskUserQuestion requests', async () => {
       Pets: ['Cat', 'Dog']
     }
   });
-  assert.equal(client.getOpenRequests().length, 0);
+  assert.equal(client.getOpenRequestsDetailed().length, 0);
 });
 
 test('ClaudeClient attaches to an existing waiting turn and answers questions', async () => {
@@ -197,12 +199,12 @@ test('ClaudeClient attaches to an existing waiting turn and answers questions', 
     }
   });
 
-  const [request] = client.getOpenRequests();
+  const [request] = client.getOpenRequestsDetailed();
   assert.equal(request.kind, 'question');
-  assert.equal(client.getCurrentTurn()?.metadata?.synthetic, true);
-  assert.equal(client.getCurrentTurn()?.metadata?.resumed, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.synthetic, true);
+  assert.equal(client.getCurrentTurnDetailed()?.metadata?.resumed, true);
 
-  await client.answerQuestion(request.id, 'Yes');
+  await client.answerQuestionDetailed(request.id, 'Yes');
 
   assert.equal(controlResponses.length, 1);
   assert.equal(controlResponses[0].requestId, 'sdk-question-remote');
@@ -212,7 +214,7 @@ test('ClaudeClient attaches to an existing waiting turn and answers questions', 
       Resume: 'Yes'
     }
   });
-  assert.equal(client.getOpenRequests().length, 0);
+  assert.equal(client.getOpenRequestsDetailed().length, 0);
 });
 
 test('ClaudeClient supports incremental question sessions', async () => {
@@ -246,7 +248,7 @@ test('ClaudeClient supports incremental question sessions', async () => {
     }
   });
 
-  const [request] = client.getOpenRequests();
+  const [request] = client.getOpenRequestsDetailed();
   const session = client.createQuestionSession(request.id);
 
   assert.equal(session.getCurrentQuestion()?.id, 'color-id');

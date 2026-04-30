@@ -1,0 +1,10 @@
+export { CopilotPlanApi } from './plan.js';
+export { CopilotSkillsApi } from './skills.js';
+export { CopilotAgentApi } from './agent.js';
+export { CopilotHistoryApi } from './history.js';
+export { CopilotUsageApi } from './usage.js';
+export { CopilotShellApi } from './shell.js';
+export { CopilotWorkspacesApi } from './workspaces.js';
+export { CopilotNameApi } from './name.js';
+export { CopilotInstructionsApi } from './instructions.js';
+export { CopilotMcpApi } from './mcp.js';

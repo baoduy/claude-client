@@ -32,14 +32,27 @@ async function withCopilotStartStub(fn) {
 const expectedMembers = [
   'provider',
   'sessionId',
+  'capabilities',
   'start',
   'close',
   'send',
   'sendMessage',
   'queueMessage',
   'interrupt',
+  'getStatus',
+  'isProcessing',
+  'getCurrentTurn',
+  'getHistory',
   'on',
   'off',
+];
+
+const optionalMethods = [
+  'setModel',
+  'setPermissionMode',
+  'setMaxThinkingTokens',
+  'listSupportedModels',
+  'getMessages',
 ];
 
 test('factory-produced Claude client exposes the AICliClient surface', async () => {
@@ -81,6 +94,49 @@ test('factory client and direct-constructed Copilot client share the same surfac
     for (const member of expectedMembers) {
       assert.equal(member in factoryClient, member in directClient,
         `surface mismatch for member: ${member}`);
+    }
+  });
+});
+
+test('Claude client getStatus returns UnifiedStatus (3-state)', async () => {
+  await withClaudeInitStub(async () => {
+    const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });
+    const s = client.getStatus();
+    assert.ok(['idle', 'running', 'error'].includes(s), `expected 3-state, got '${s}'`);
+  });
+});
+
+test('Copilot client getStatus returns UnifiedStatus (3-state)', async () => {
+  await withCopilotStartStub(async () => {
+    const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
+    const s = client.getStatus();
+    assert.ok(['idle', 'running', 'error'].includes(s));
+  });
+});
+
+test('Claude optional method presence matches capabilities (all true)', async () => {
+  await withClaudeInitStub(async () => {
+    const client = await createAICliClient({ provider: 'claude', cwd: '/tmp' });
+    for (const m of optionalMethods) {
+      assert.equal(client.capabilities[m], true, `Claude.capabilities.${m} should be true`);
+      assert.equal(typeof client[m], 'function', `Claude.${m} should be defined`);
+    }
+  });
+});
+
+test('Copilot optional method presence matches capabilities', async () => {
+  await withCopilotStartStub(async () => {
+    const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
+    // Methods Copilot now implements (track Group E gap-fill progress).
+    const presentMethods = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
+    for (const m of optionalMethods) {
+      if (presentMethods.has(m)) {
+        assert.equal(client.capabilities[m], true, `Copilot.capabilities.${m} should be true`);
+        assert.equal(typeof client[m], 'function', `Copilot.${m} should be a method`);
+      } else {
+        assert.equal(client.capabilities[m], false, `Copilot.capabilities.${m} should be false`);
+        assert.equal(client[m], undefined, `Copilot.${m} should be undefined`);
+      }
     }
   });
 });
