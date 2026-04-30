@@ -193,3 +193,50 @@ export type GhClient = GhCopilotClient;
 type _SessionRpc = GhCopilotSession["rpc"];
 export type PlanReadResult = Awaited<ReturnType<_SessionRpc["plan"]["read"]>>;
 export type PlanUpdateRequest = Parameters<_SessionRpc["plan"]["update"]>[0];
+
+// --- Skills (experimental) ---
+export type SkillList = Awaited<ReturnType<_SessionRpc["skills"]["list"]>>;
+export type SkillsEnableRequest = Parameters<_SessionRpc["skills"]["enable"]>[0];
+export type SkillsDisableRequest = Parameters<_SessionRpc["skills"]["disable"]>[0];
+
+// --- Agent (experimental) ---
+export type AgentList = Awaited<ReturnType<_SessionRpc["agent"]["list"]>>;
+export type AgentGetCurrentResult = Awaited<ReturnType<_SessionRpc["agent"]["getCurrent"]>>;
+export type AgentSelectRequest = Parameters<_SessionRpc["agent"]["select"]>[0];
+export type AgentSelectResult = Awaited<ReturnType<_SessionRpc["agent"]["select"]>>;
+export type AgentReloadResult = Awaited<ReturnType<_SessionRpc["agent"]["reload"]>>;
+
+// --- History (experimental) ---
+export type HistoryCompactResult = Awaited<ReturnType<_SessionRpc["history"]["compact"]>>;
+export type HistoryTruncateRequest = Parameters<_SessionRpc["history"]["truncate"]>[0];
+export type HistoryTruncateResult = Awaited<ReturnType<_SessionRpc["history"]["truncate"]>>;
+
+// --- Usage (experimental) ---
+export type UsageGetMetricsResult = Awaited<ReturnType<_SessionRpc["usage"]["getMetrics"]>>;
+
+// --- Shell ---
+export type ShellExecRequest = Parameters<_SessionRpc["shell"]["exec"]>[0];
+export type ShellExecResult = Awaited<ReturnType<_SessionRpc["shell"]["exec"]>>;
+export type ShellKillRequest = Parameters<_SessionRpc["shell"]["kill"]>[0];
+export type ShellKillResult = Awaited<ReturnType<_SessionRpc["shell"]["kill"]>>;
+
+// --- Workspaces ---
+export type WorkspacesGetWorkspaceResult = Awaited<ReturnType<_SessionRpc["workspaces"]["getWorkspace"]>>;
+export type WorkspacesListFilesResult = Awaited<ReturnType<_SessionRpc["workspaces"]["listFiles"]>>;
+export type WorkspacesReadFileRequest = Parameters<_SessionRpc["workspaces"]["readFile"]>[0];
+export type WorkspacesReadFileResult = Awaited<ReturnType<_SessionRpc["workspaces"]["readFile"]>>;
+export type WorkspacesCreateFileRequest = Parameters<_SessionRpc["workspaces"]["createFile"]>[0];
+
+// --- Name ---
+export type NameGetResult = Awaited<ReturnType<_SessionRpc["name"]["get"]>>;
+export type NameSetRequest = Parameters<_SessionRpc["name"]["set"]>[0];
+
+// --- Instructions ---
+export type InstructionsGetSourcesResult = Awaited<ReturnType<_SessionRpc["instructions"]["getSources"]>>;
+
+// --- Mcp (experimental) ---
+export type McpServerList = Awaited<ReturnType<_SessionRpc["mcp"]["list"]>>;
+export type McpEnableRequest = Parameters<_SessionRpc["mcp"]["enable"]>[0];
+export type McpDisableRequest = Parameters<_SessionRpc["mcp"]["disable"]>[0];
+export type McpOauthLoginRequest = Parameters<_SessionRpc["mcp"]["oauth"]["login"]>[0];
+export type McpOauthLoginResult = Awaited<ReturnType<_SessionRpc["mcp"]["oauth"]["login"]>>;
