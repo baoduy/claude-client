@@ -70,3 +70,34 @@ export class RequestNotHandled extends Error {
     super(message);
   }
 }
+
+export class SessionNotStartedError extends Error {
+  override readonly name = 'SessionNotStartedError';
+  constructor(public readonly callsite: string) {
+    super(`Cannot call ${callsite}: session not started — call start() first.`);
+  }
+}
+
+export class CopilotRpcError extends Error {
+  override readonly name = 'CopilotRpcError';
+  readonly experimental = false;
+  constructor(
+    public readonly namespace: string,
+    public readonly method: string,
+    public override readonly cause?: unknown,
+  ) {
+    super(`Copilot RPC failed: ${namespace}.${method}`);
+  }
+}
+
+export class CopilotExperimentalUnavailableError extends Error {
+  override readonly name = 'CopilotExperimentalUnavailableError';
+  readonly experimental = true;
+  constructor(
+    public readonly namespace: string,
+    public readonly method: string,
+    public readonly cliVersion?: string,
+  ) {
+    super(`Copilot experimental RPC ${namespace}.${method} is unavailable on CLI version ${cliVersion ?? 'unknown'}.`);
+  }
+}
