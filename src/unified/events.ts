@@ -13,6 +13,10 @@ export interface UnifiedEventMap {
   result: [snapshot: TurnSnapshot];
   error: [err: Error];
   closed: [exitCode: number | null];
+  // Phase 1.2 additions
+  pending_request_added: [event: { id: string; kind: 'permission' | 'elicitation' | 'question' }];
+  pending_request_removed: [event: { id: string }];
+  pending_request_resolved: [event: { id: string; outcome: 'approved' | 'denied' | 'answered' | 'cancelled' }];
 }
 
 export type UnifiedEventName = keyof UnifiedEventMap;

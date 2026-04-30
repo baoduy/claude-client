@@ -1,5 +1,83 @@
 # Changelog
 
+## 1.3.0 — 2026-04-29
+
+### Added
+- `CopilotClient` now exposes 10 namespace wrappers for upstream `session.rpc.*`:
+  `plan`, `skills`, `agent`, `history`, `usage`, `shell`, `workspaces`,
+  `name`, `instructions`, `mcp` (with nested `mcp.oauth.login`).
+- Subpath export `@baoduy2412/ai-cli-client/copilot/namespaces` for
+  tree-shake-friendly imports of wrapper classes and their derived
+  request/result types.
+- New error classes: `SessionNotStartedError` (callsite tag),
+  `CopilotRpcError` (namespace/method/cause), and
+  `CopilotExperimentalUnavailableError` (with `cliVersion`).
+- `test/unit/capability-matrix.test.mjs` — CI guard that asserts
+  `docs/provider-capabilities.md` matches runtime `client.capabilities`.
+
+### Notes
+- Five namespaces are marked `@experimental` upstream and may change
+  shape in minor SDK releases: `skills`, `agent`, `history`, `usage`,
+  `mcp`. Method-not-found errors (JSON-RPC -32601) are translated to
+  `CopilotExperimentalUnavailableError` so consumers can detect older
+  CLI versions.
+- All wrappers use a lazy session resolver — methods called before
+  `client.start()` throw `SessionNotStartedError`.
+
+## 1.2.0 — 2026-04-29
+
+### Added
+- `AICliClient.getOpenRequests/approveRequest/denyRequest/answerQuestion/getPendingAction`: pull-style interactive approval surface on both providers. Capability flag `interactiveApproval: true`.
+- `AICliClient.interruptTurn(turnId?)`: granular interrupt. Claude honors `turnId` (per-turn granularity); Copilot ignores it (session-only). Capability flag `interruptTurnGranularity: 'per-turn' | 'session-only'`.
+- `AICliClient.getDetailedStatus()`: provider-aware unified `DetailedStatus`.
+- `AICliClient.setPermissionMode(mode)`: now portable. Capability `setPermissionMode: true` for Copilot.
+- `AICliCapabilities` extended with `permissionModes: PermissionMode[]`, `interactiveApproval`, `interruptTurnGranularity`, `detailedStatus`.
+- New unified events `pending_request_added` / `pending_request_removed` / `pending_request_resolved` on `UnifiedEventMap`.
+- `RequestNotHandled` sentinel error: throw from a user-provided permission/elicitation/userInput handler to fall through to the internal queue.
+- `CopilotClientConfig` now accepts `onPermissionRequest`, `onElicitationRequest`, `onUserInputRequest` callbacks; chained with the internal `PendingRequestQueue` via `RequestNotHandled`.
+- New types: `PendingRequest`, `PermissionPendingRequest`, `ElicitationPendingRequest`, `UserInputPendingRequest`, `ApproveDecision`, `QuestionResponse`, `DetailedStatus`, `PendingAction`.
+- `UnsupportedModeError` raised when `setPermissionMode` receives a mode not in `capabilities.permissionModes`.
+- Cross-provider contract tests under `test/contract/`.
+
+### Changed (BREAKING — string-literal rename, gated by deprecation alias)
+- `PermissionMode` vocabulary renamed to `'prompt' | 'auto-edit' | 'auto-all' | 'plan' | 'autopilot'`. Legacy values (`'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'dontAsk' | 'plan'`) remain accepted at runtime via the deprecated `LegacyPermissionMode` alias and `translateLegacyPermissionMode()` helper. The alias will be removed in 2.0.0.
+- Migration `sed`:
+  ```
+  sed -i.bak "s/'default'/'prompt'/g; s/'acceptEdits'/'auto-edit'/g; s/'bypassPermissions'/'auto-all'/g" <files>
+  ```
+- Claude's pre-existing rich-shape methods preserved as `*Detailed` siblings (following the existing `getCurrentTurn`/`getCurrentTurnDetailed` pattern):
+  - `getOpenRequests` → `getOpenRequestsDetailed`
+  - `approveRequest` → `approveRequestDetailed`
+  - `denyRequest` → `denyRequestDetailed`
+  - `answerQuestion` → `answerQuestionDetailed`
+  - `getPendingAction` → `getPendingActionDetailed`
+  - `getDetailedStatus` (Claude's 4-state shape) → `getClaudeStatus`. The new unified `getDetailedStatus()` returns `DetailedStatus`.
+  - Consumers calling the old method names with the rich Claude shape should migrate to the `*Detailed` versions.
+
+### Known limitations
+- **Copilot `approve-for-session` / `approve-for-location` shape synthesis is best-effort.** The SDK's `PermissionRequest` only exposes `kind` + `toolCallId`; the queue cannot fully reconstruct a `commands`-style approval payload for shell, MCP server names for `mcp`, etc. Consequence: scope `'session'` and `'location'` decisions degrade to `'once'` (with a `console.warn`) for `mcp`, `custom-tool`, `url`, `hook` permission kinds. Consumers needing full-fidelity multi-turn approvals should install a user-provided `onPermissionRequest` handler.
+- **Copilot `auto-edit` matches `PermissionRequest.kind === 'write'` only.** Other "edit-like" operations (file rename, delete) are not auto-approved — they go through the queue normally.
+- **Copilot `interruptTurn(turnId)` ignores `turnId`** — the SDK's `session.abort()` is session-scoped. Use `capabilities.interruptTurnGranularity` to detect.
+- **Default `CopilotClient` blocks indefinitely on unhandled permission requests** until the consumer drains them via `approveRequest`/`denyRequest`. This is the intended pull-style API but a behavior shift from prior versions where `approveAll` was the silent default. Consumers wanting silent auto-approve should explicitly call `setPermissionMode('auto-all')` after `start()` or pass `onPermissionRequest: approveAll` (re-export from `@github/copilot-sdk`).
+
+### Provider-specific (Claude)
+- Claude's permission internals untouched; the wire-protocol `ClaudePermissionMode` and `permissionMode?` config field remain. The public `setPermissionMode` accepts the unified vocab and translates internally.
+
+## 1.1.0 — 2026-04-29
+
+### Added
+- `AICliClient.getMessages()`: unified message history projection on both providers, returning `UnifiedMessage[]`. Capability flag `getMessages: true`.
+- `CopilotClient.setModel(model)`: maps to `session.setModel`. Capability flag `setModel: true` for Copilot.
+- `CopilotClient.listSupportedModels()`: maps to `client.listModels()`, projected to `SupportedModelsResponse`. Capability flag `listSupportedModels: true` for Copilot.
+- `CopilotClientConfig.hooks?: SessionHooks`: full Copilot hook lifecycle (`onPreToolUse`, `onPostToolUse`, `onUserPromptSubmitted`, `onSessionStart`, `onSessionEnd`, `onErrorOccurred`). Capability flag `hooks: true` for Copilot.
+- `CopilotClientConfig.mcpServers?: Record<string, MCPServerConfig>`: stdio + http/sse MCP servers at session creation. Capability flag `mcp: true` for Copilot.
+- `SendInput` content blocks: `file_path`, `directory_path`, `selection` (Copilot-only at runtime — passing them to Claude throws `UnsupportedContentError`).
+- `CopilotClient.send/sendMessage/queueMessage` now accept image content blocks (base64 → blob attachment); URL image source remains unsupported.
+
+### Changed
+- **Breaking (TS):** `AICliCapabilities.richContent` widened from `boolean` → `'none' | 'partial' | 'full'`. Truthy/falsy runtime checks remain semantically correct (`'none'` is falsy, `'partial' | 'full'` are truthy). Migration: replace `caps.richContent === true` with `caps.richContent !== 'none'`.
+- `CopilotClient.close()`: harmonized to `session.abort()` → `session.disconnect()` → `client.stop()`, idempotent. Both providers now emit `closed` event with `null` exit code on graceful close.
+
 ## 1.0.0 — 2026-04-29
 
 ### Breaking changes — unified surface expansion

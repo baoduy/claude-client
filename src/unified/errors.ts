@@ -20,3 +20,10 @@ export class UnsupportedContentError extends Error {
     this.inputIndex = index;
   }
 }
+
+export class UnsupportedModeError extends Error {
+  override readonly name = 'UnsupportedModeError';
+  constructor(public readonly provider: string, public readonly mode: string) {
+    super(`Provider '${provider}' does not support permission mode '${mode}'.`);
+  }
+}

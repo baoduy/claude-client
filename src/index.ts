@@ -27,11 +27,12 @@ export type {
   ImageSource,
   AICliCapabilities,
   PermissionMode,
+  LegacyPermissionMode,
   SupportedModelsResponse,
   UnifiedEventMap,
   UnifiedEventName,
 } from './unified/index.js';
-export { UnsupportedContentError } from './unified/index.js';
+export { UnsupportedContentError, translateLegacyPermissionMode } from './unified/index.js';
 
 // PTY transport (Phase 3)
 export type {

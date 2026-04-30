@@ -41,11 +41,20 @@ import {
 import type { AICliClient } from '../ai-cli-client.js';
 import type {
     AICliCapabilities,
+    ApproveDecision,
+    DetailedStatus,
+    PermissionMode,
+    LegacyPermissionMode,
+    PendingAction as UnifiedPendingAction,
+    PendingRequest,
+    QuestionResponse,
     TurnSnapshot as UnifiedTurnSnapshot,
     TurnToolUse as UnifiedTurnToolUse,
     TurnToolResult as UnifiedTurnToolResult,
     UnifiedStatus,
+    UnifiedMessage,
 } from '../unified/index.js';
+import { translateLegacyPermissionMode } from '../unified/index.js';
 import type {
     ClaudeSendInput,
     ClaudeSendOptions,
@@ -67,6 +76,22 @@ export type ClaudePermissionMode =
     | 'default'
     | 'dontAsk'
     | 'plan';
+
+/**
+ * Map the unified `PermissionMode` vocabulary onto the Claude wire-protocol
+ * vocabulary (`ClaudePermissionMode`). `'autopilot'` is Copilot-only and
+ * throws — Claude has no equivalent.
+ */
+function unifiedToClaudeMode(mode: PermissionMode): ClaudePermissionMode {
+    switch (mode) {
+        case 'prompt': return 'default';
+        case 'auto-edit': return 'acceptEdits';
+        case 'auto-all': return 'bypassPermissions';
+        case 'plan': return 'plan';
+        case 'autopilot':
+            throw new Error('autopilot is not a Claude permission mode');
+    }
+}
 
 export interface ClaudeClientConfig {
     /**
@@ -424,11 +449,20 @@ type _InternalOpenRequest = _InternalQuestionRequest | _InternalToolRequest | _I
 export class ClaudeClient extends EventEmitter implements ITurnSession, AICliClient {
     readonly provider = 'claude' as const;
     readonly capabilities: AICliCapabilities = {
-        richContent: true,
+        richContent: 'partial',
         setModel: true,
         setPermissionMode: true,
         setMaxThinkingTokens: true,
         listSupportedModels: true,
+        getMessages: true,
+        hooks: true,
+        mcp: true,
+        // Phase 1.2 additions — Claude has all 4 modes (no autopilot),
+        // interactive approval, per-turn granularity, detailed status.
+        permissionModes: ['prompt', 'auto-edit', 'auto-all', 'plan'] as const,
+        interactiveApproval: true,
+        interruptTurnGranularity: 'per-turn',
+        detailedStatus: true,
     };
     private process: ChildProcess | null = null;
     private config: ClaudeClientConfig;
@@ -449,6 +483,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     // Status tracking
     private _status: SessionStatus = 'idle';
     private _pendingAction: PendingAction | null = null;
+    private _currentPermissionModeUnified: PermissionMode | undefined = undefined;
     private pendingControlRequests = new Map<string, ControlRequestMessage>();
     private pendingControlResponses = new Map<string, {
         resolve: (value: any) => void;
@@ -514,7 +549,7 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     /**
      * Get current session status as the unified 3-state value.
      * Internal `'input_needed'` is mapped to `'running'`. Use
-     * `getDetailedStatus()` for the underlying 4-state value.
+     * `getClaudeStatus()` for the underlying 4-state Claude value.
      */
     getStatus(): UnifiedStatus {
         if (this._status === 'input_needed') return 'running';
@@ -524,15 +559,52 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     /**
      * Get the underlying 4-state Claude session status, including
      * `'input_needed'` which the unified `getStatus()` collapses to `'running'`.
+     *
+     * For the unified `DetailedStatus` shape (provider-agnostic), call
+     * `getDetailedStatus()` instead.
      */
-    getDetailedStatus(): SessionStatus {
+    getClaudeStatus(): SessionStatus {
         return this._status;
     }
 
     /**
-     * Get pending action (if status is 'input_needed')
+     * Return the unified `DetailedStatus` snapshot. Aggregates the 3-state
+     * unified status, the 4-state Claude phase, the count of currently open
+     * requests, and the most-recently-set unified permission mode (when
+     * tracked via `setPermissionMode()`).
      */
-    getPendingAction(): PendingAction | null {
+    getDetailedStatus(): DetailedStatus {
+        const claudeStatus = this.getClaudeStatus();
+        return {
+            status: this.getStatus(),
+            phase: claudeStatus,
+            pendingRequestCount: this._scOpenRequests.size,
+            ...(this._currentPermissionModeUnified
+                ? { permissionMode: this._currentPermissionModeUnified }
+                : {}),
+            raw: { provider: 'claude', payload: { sessionStatus: claudeStatus } },
+        };
+    }
+
+    /**
+     * Get the most-recent pending action in the unified `{id, kind}` shape,
+     * or `null` when none is open. The unified shape is intentionally
+     * minimal — call `getPendingActionDetailed()` for the full Claude
+     * `PendingAction` (with `toolName`, `input`, `question`, `options`),
+     * or `getOpenRequestsDetailed()` for the rich open-request list.
+     */
+    getPendingAction(): UnifiedPendingAction | null {
+        if (!this._pendingAction) return null;
+        const kind: 'permission' | 'question' =
+            this._pendingAction.type === 'question' ? 'question' : 'permission';
+        return { id: this._pendingAction.requestId, kind };
+    }
+
+    /**
+     * Get the rich Claude-specific pending action (if status is `'input_needed'`).
+     * Preserved for callers that need `toolName`, `input`, `question`, `options`.
+     */
+    getPendingActionDetailed(): PendingAction | null {
         return this._pendingAction;
     }
 
@@ -1123,10 +1195,25 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Set permission mode (default or acceptEdits)
+     * Set permission mode.
+     *
+     * Accepts the unified `PermissionMode` vocabulary (`'prompt'`, `'auto-edit'`,
+     * `'auto-all'`, `'plan'`), the legacy six-value vocabulary (`'default'`,
+     * `'acceptEdits'`, `'auto'`, `'bypassPermissions'`, `'dontAsk'`, `'plan'`),
+     * or a Claude-internal `ClaudePermissionMode`. Inputs are normalized to
+     * the unified vocab and then mapped to the Claude wire-protocol value.
+     *
+     * `'autopilot'` is Copilot-only and will throw if passed.
      */
-    async setPermissionMode(mode: ClaudePermissionMode): Promise<void> {
-        await this.sendControlRequest({ subtype: 'set_permission_mode', mode });
+    async setPermissionMode(
+        mode: PermissionMode | LegacyPermissionMode | ClaudePermissionMode,
+    ): Promise<void> {
+        const unified = translateLegacyPermissionMode(
+            mode as PermissionMode | LegacyPermissionMode,
+        );
+        const claudeMode = unifiedToClaudeMode(unified);
+        await this.sendControlRequest({ subtype: 'set_permission_mode', mode: claudeMode });
+        this._currentPermissionModeUnified = unified;
     }
 
     /**
@@ -1794,6 +1881,56 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
+     * Project completed turn history into a flat `UnifiedMessage[]`.
+     *
+     * Per Claude `TurnSnapshot`:
+     * - one `assistant` message if `text` is non-empty (with `reasoning`
+     *   carrying the Claude `thinking` field, when present)
+     * - one `tool` message per `toolUses[i]`
+     * - one `tool` message per `toolResults[i]`
+     *
+     * The full `TurnSnapshot` is preserved under `.raw.event` so callers
+     * can narrow by provider and access Claude-specific fields.
+     */
+    async getMessages(): Promise<UnifiedMessage[]> {
+        const detailed = this.getHistoryDetailed();
+        const out: UnifiedMessage[] = [];
+        for (const turn of detailed) {
+            const startedAt = Date.parse(turn.startedAt);
+            const completedAt = turn.completedAt ? Date.parse(turn.completedAt) : startedAt;
+            if (turn.text) {
+                out.push({
+                    id: `${turn.id}#assistant`,
+                    role: 'assistant',
+                    text: turn.text,
+                    ...(turn.thinking ? { reasoning: turn.thinking } : {}),
+                    timestamp: startedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+            for (const t of turn.toolUses ?? []) {
+                out.push({
+                    id: t.id,
+                    role: 'tool',
+                    toolUse: { id: t.id, name: t.name, input: t.input },
+                    timestamp: startedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+            for (const r of turn.toolResults ?? []) {
+                out.push({
+                    id: `${r.toolUseId}#result`,
+                    role: 'tool',
+                    toolResult: { toolUseId: r.toolUseId, content: r.content, isError: r.isError },
+                    timestamp: completedAt,
+                    raw: { provider: 'claude', event: turn },
+                });
+            }
+        }
+        return out;
+    }
+
+    /**
      * Adapt a Claude `TurnSnapshot` to the unified `TurnSnapshot` shape.
      * - `thinking` aliases to `reasoning`
      * - `usage` is renamed (input_tokens → inputTokens, output_tokens → outputTokens)
@@ -1845,14 +1982,27 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Return clones of all currently open requests.
+     * Return clones of all currently open requests in the **unified**
+     * `PendingRequest` shape. Use `getOpenRequestsDetailed()` for the
+     * rich Claude `OpenRequest` shape (with `toolName`, `suggestions`,
+     * `questions[]`, etc.).
      */
-    getOpenRequests(): OpenRequest[] {
+    getOpenRequests(): PendingRequest[] {
+        return this.getOpenRequestsDetailed().map((req) => _claudeOpenRequestToPending(req));
+    }
+
+    /**
+     * Return clones of all currently open requests in the rich Claude
+     * `OpenRequest` shape (preserved for callers needing detailed fields).
+     */
+    getOpenRequestsDetailed(): OpenRequest[] {
         return Array.from(this._scOpenRequests.values()).map((entry) => cloneOpenRequest(entry.request));
     }
 
     /**
-     * Return a clone of the open request with the given id, or undefined.
+     * Return a clone of the open request with the given id, or null.
+     * Returns the rich Claude `OpenRequest` shape — there is currently no
+     * "single unified" variant; consumers can map via `getOpenRequests()`.
      */
     getOpenRequest(id: string): OpenRequest | null {
         const entry = this._scOpenRequests.get(id);
@@ -1860,9 +2010,20 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Approve a tool-approval or hook request.
+     * Approve a tool-approval or hook request using the **unified**
+     * `ApproveDecision` shape. For the rich Claude decision payload (with
+     * `updatedInput`, `updatedPermissions`, `always`, etc.), use
+     * `approveRequestDetailed()`.
      */
-    async approveRequest(
+    async approveRequest(id: string, decision?: ApproveDecision): Promise<void> {
+        return this.approveRequestDetailed(id, _claudeApproveDecisionFromUnified(decision));
+    }
+
+    /**
+     * Approve a tool-approval or hook request with Claude's full decision
+     * payload (preserved for callers needing the rich fields).
+     */
+    async approveRequestDetailed(
         id: string,
         decision?: {
             message?: string;
@@ -1903,9 +2064,17 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Deny a tool-approval or hook request.
+     * Deny a tool-approval or hook request, optionally with feedback.
+     * Unified-shape entry point — delegates to `denyRequestDetailed()`.
      */
-    async denyRequest(id: string, reason?: string): Promise<void> {
+    async denyRequest(id: string, feedback?: string): Promise<void> {
+        return this.denyRequestDetailed(id, feedback);
+    }
+
+    /**
+     * Deny a tool-approval or hook request (rich Claude shape).
+     */
+    async denyRequestDetailed(id: string, reason?: string): Promise<void> {
         const entry = this._scRequireOpenRequest(id);
         if (entry.request.kind !== 'tool_approval' && entry.request.kind !== 'hook') {
             throw new Error(`Request ${id} cannot be denied with denyRequest.`);
@@ -1925,9 +2094,28 @@ export class ClaudeClient extends EventEmitter implements ITurnSession, AICliCli
     }
 
     /**
-     * Answer a question request.
+     * Answer a question request using the **unified** `QuestionResponse`
+     * shape. For the rich Claude `QuestionAnswerInput` payload (string,
+     * array, or per-question record), use `answerQuestionDetailed()`.
      */
-    async answerQuestion(id: string, answers: QuestionAnswerInput): Promise<void> {
+    async answerQuestion(id: string, response: QuestionResponse): Promise<void> {
+        if (response.kind === 'cancel') {
+            const entry = this._scRequireOpenRequest(id);
+            await this.sendControlResponse(entry.sdkRequestId, {
+                behavior: 'deny',
+                message: 'Canceled by user.',
+            });
+            this._scResolveOpenRequest(id, 'canceled');
+            return;
+        }
+        return this.answerQuestionDetailed(id, _claudeQuestionAnswerFromUnified(response));
+    }
+
+    /**
+     * Answer a question request with Claude's rich `QuestionAnswerInput`
+     * (preserved for callers using per-question keyed answers, lists, etc.).
+     */
+    async answerQuestionDetailed(id: string, answers: QuestionAnswerInput): Promise<void> {
         const entry = this._scRequireOpenRequest(id);
         if (entry.request.kind !== 'question') {
             throw new Error(`Request ${id} is not a question request.`);
@@ -2233,6 +2421,116 @@ function _scNormalizeQuestionAnswerValue(value: QuestionAnswerValue | undefined)
     }
 
     return '';
+}
+
+// ── Unified ↔ Claude shape adapters (Phase 1.2 — B10) ────────────────────
+
+/**
+ * Map a Claude `OpenRequest` onto the unified `PendingRequest` shape.
+ * - `tool_approval` → `permission` (kind `'custom-tool'`)
+ * - `hook` → `permission` (kind `'hook'`)
+ * - `mcp` → `permission` (kind `'mcp'`)
+ * - `question` → `question` with the first prompt and its options
+ *
+ * The full Claude payload is preserved under `raw.payload` so callers can
+ * narrow on `provider === 'claude'` and access detailed fields when needed.
+ */
+function _claudeOpenRequestToPending(req: OpenRequest): PendingRequest {
+    const raw = { provider: 'claude' as const, payload: req };
+    if (req.kind === 'question') {
+        const first = req.questions[0];
+        const question = first?.prompt ?? req.prompt ?? req.title ?? 'Question';
+        const choices = first?.options?.map((opt) => opt.label) ?? [];
+        return {
+            id: req.id,
+            kind: 'question',
+            question,
+            ...(choices.length > 0 ? { choices } : {}),
+            allowFreeform: req.allowOther === true,
+            raw,
+        };
+    }
+
+    let permissionKind: 'shell' | 'write' | 'mcp' | 'read' | 'url' | 'custom-tool' | 'memory' | 'hook';
+    let message: string;
+    if (req.kind === 'tool_approval') {
+        permissionKind = 'custom-tool';
+        message = req.decisionReason || `Allow tool '${req.toolName}'?`;
+    } else if (req.kind === 'hook') {
+        permissionKind = 'hook';
+        message = `Hook callback ${req.callbackId ?? ''}`.trim() || 'Run hook callback?';
+    } else {
+        // 'mcp'
+        permissionKind = 'mcp';
+        message = `MCP message from server '${req.serverName}'`;
+    }
+
+    return {
+        id: req.id,
+        kind: 'permission',
+        permissionKind,
+        message,
+        ...(req.kind === 'tool_approval' && req.toolUseId ? { toolCallId: req.toolUseId } : {}),
+        raw,
+    };
+}
+
+/**
+ * Translate a unified `ApproveDecision` into Claude's richer decision
+ * payload accepted by `approveRequestDetailed()`. `'session'` maps to
+ * Claude's session scope; `'location'` is best-effort mapped to `'directory'`
+ * scope (closest Claude equivalent for a path-keyed scope); `'once'` (or
+ * undefined / no-arg) leaves the scope unset.
+ */
+function _claudeApproveDecisionFromUnified(
+    decision?: ApproveDecision,
+): {
+    message?: string;
+    updatedInput?: Record<string, any>;
+    updatedPermissions?: any[];
+    scope?: PermissionScope;
+    always?: boolean;
+} | undefined {
+    if (!decision) return undefined;
+    switch (decision.scope) {
+        case 'once':
+            return {};
+        case 'session':
+            return { scope: 'session', always: true };
+        case 'location':
+            return { scope: 'directory', always: true };
+    }
+}
+
+/**
+ * Translate a unified `QuestionResponse` into Claude's `QuestionAnswerInput`.
+ * `'cancel'` is handled separately by the caller (sent as a `deny` response);
+ * this helper covers `'text' | 'choice' | 'form'`.
+ *
+ * Form values that aren't strings or string[] (booleans, numbers) are
+ * stringified so they fit Claude's `QuestionAnswerValue` shape.
+ */
+function _claudeQuestionAnswerFromUnified(
+    response: Exclude<QuestionResponse, { kind: 'cancel' }>,
+): QuestionAnswerInput {
+    if (response.kind === 'text') {
+        return response.answer;
+    }
+    if (response.kind === 'choice') {
+        return response.value;
+    }
+    // form
+    const out: Record<string, QuestionAnswerValue> = {};
+    for (const [key, value] of Object.entries(response.values)) {
+        if (typeof value === 'string') {
+            out[key] = value;
+        } else if (Array.isArray(value)) {
+            out[key] = value.map((v) => String(v));
+        } else {
+            out[key] = String(value);
+        }
+    }
+    return out;
 }
 
 const RELATED_TASK_KEY = 'io.modelcontextprotocol/related-task';

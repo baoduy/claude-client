@@ -364,7 +364,7 @@ test('pendingAction is set for AskUserQuestion', () => {
     }
   });
 
-  const action = client.getPendingAction();
+  const action = client.getPendingActionDetailed();
   assert.equal(action.type, 'question');
   assert.equal(action.question, 'What do you prefer?');
   assert.deepEqual(action.options, ['A', 'B']);

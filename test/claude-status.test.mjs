@@ -14,12 +14,23 @@ test('ClaudeClient.getStatus maps input_needed to running', () => {
   assert.equal(client.getStatus(), 'running');
 });
 
-test('ClaudeClient.getDetailedStatus returns the 4-state status', () => {
+test('ClaudeClient.getClaudeStatus returns the 4-state status', () => {
   const client = new ClaudeClient({ cwd: '/tmp', sessionId: 'test' });
 
   Object.defineProperty(client, '_status', { value: 'input_needed', writable: true });
-  assert.equal(client.getDetailedStatus(), 'input_needed');
+  assert.equal(client.getClaudeStatus(), 'input_needed');
 
   Object.defineProperty(client, '_status', { value: 'idle', writable: true });
-  assert.equal(client.getDetailedStatus(), 'idle');
+  assert.equal(client.getClaudeStatus(), 'idle');
+});
+
+test('ClaudeClient.getDetailedStatus returns unified DetailedStatus shape', () => {
+  const client = new ClaudeClient({ cwd: '/tmp', sessionId: 'test' });
+
+  Object.defineProperty(client, '_status', { value: 'input_needed', writable: true });
+  const ds = client.getDetailedStatus();
+  assert.equal(ds.status, 'running'); // input_needed collapses to running
+  assert.equal(ds.phase, 'input_needed');
+  assert.equal(typeof ds.pendingRequestCount, 'number');
+  assert.equal(ds.raw.provider, 'claude');
 });

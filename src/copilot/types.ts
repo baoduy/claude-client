@@ -1,6 +1,13 @@
 import type {
   TurnSnapshot,
 } from '../unified/types.js';
+import type {
+  SessionHooks,
+  MCPServerConfig,
+  PermissionHandler,
+  ElicitationHandler,
+  UserInputHandler,
+} from './sdk.js';
 
 /** Configuration for CopilotClient. Matches the spec §5 verbatim. */
 export interface CopilotClientConfig {
@@ -44,6 +51,23 @@ export interface CopilotClientConfig {
 
   // Reserved for Phase 2; throws if used in Phase 1
   transport?: 'programmatic' | 'pty';
+
+  // Lifecycle hooks — passed straight to SDK createSession
+  hooks?: SessionHooks;
+
+  // MCP servers — passed straight to SDK createSession.
+  // Supports both stdio (`command`/`args`) and http/sse (`type: 'http'`, `url`)
+  // variants per the SDK's MCPServerConfig union.
+  mcpServers?: Record<string, MCPServerConfig>;
+
+  // Optional user-provided callbacks for permission/elicitation/userInput
+  // requests. When set, the user's handler runs first; if it throws
+  // `RequestNotHandled` (from `./errors.js`), the request falls through to
+  // the internal `PendingRequestQueue` for pull-style API resolution
+  // (`getOpenRequests` / `approveRequest` / `denyRequest` / `answerQuestion`).
+  onPermissionRequest?: PermissionHandler;
+  onElicitationRequest?: ElicitationHandler;
+  onUserInputRequest?: UserInputHandler;
 }
 
 /**

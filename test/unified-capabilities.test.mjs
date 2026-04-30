@@ -9,19 +9,33 @@ const FLAGS = [
   'setPermissionMode',
   'setMaxThinkingTokens',
   'listSupportedModels',
+  'getMessages',
 ];
 
 test('Claude capabilities are all true', () => {
   const c = new ClaudeClient({ cwd: '/tmp', sessionId: 'test' });
   for (const f of FLAGS) {
-    assert.equal(c.capabilities[f], true, `Claude.capabilities.${f} should be true`);
+    if (f === 'richContent') {
+      assert.notEqual(c.capabilities[f], 'none', `Claude.capabilities.${f} should not be 'none'`);
+    } else {
+      assert.equal(c.capabilities[f], true, `Claude.capabilities.${f} should be true`);
+    }
   }
 });
 
-test('Copilot capabilities are all false', () => {
+test('Copilot capabilities reflect Task A4/A5/A6/A9 progress (richContent: "full", setModel + listSupportedModels + getMessages: true)', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
+  // Group E flags expected to be true after each gap-fill task.
+  const trueFlags = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
   for (const f of FLAGS) {
-    assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
+    if (f === 'richContent') {
+      // Task A4 widened richContent to 'full' once attachments were wired in.
+      assert.equal(c.capabilities[f], 'full', `Copilot.capabilities.${f} should be 'full'`);
+    } else if (trueFlags.has(f)) {
+      assert.equal(c.capabilities[f], true, `Copilot.capabilities.${f} should be true`);
+    } else {
+      assert.equal(c.capabilities[f], false, `Copilot.capabilities.${f} should be false`);
+    }
   }
 });
 
@@ -42,9 +56,15 @@ test('Claude provides the methods its capabilities advertise', () => {
   }
 });
 
-test('Copilot omits the methods its capabilities decline', () => {
+test('Copilot exposes only the optional methods its capabilities advertise', () => {
   const c = new CopilotClient({ cwd: '/tmp' });
+  // Methods Copilot now implements (track Group E gap-fill progress).
+  const presentMethods = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
   for (const f of FLAGS.filter(x => x !== 'richContent')) {
-    assert.equal(c[f], undefined, `Copilot.${f} should be undefined`);
+    if (presentMethods.has(f)) {
+      assert.equal(typeof c[f], 'function', `Copilot.${f} should be a method`);
+    } else {
+      assert.equal(c[f], undefined, `Copilot.${f} should be undefined`);
+    }
   }
 });

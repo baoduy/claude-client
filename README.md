@@ -280,6 +280,29 @@ See [`docs/pty-transport.md`](./docs/pty-transport.md) for the full
 guide, the [Electron IPC pattern](./examples/pty/electron-main.ts), and
 configuration / troubleshooting tables.
 
+## Experimental APIs
+
+Phase 1.3 (`v1.3.0`) added 10 namespace wrappers on `CopilotClient`
+that map to `@github/copilot-sdk`'s `session.rpc.*` surface. Five
+of them are `@experimental` upstream and may change shape in minor
+SDK releases:
+
+- `client.skills.{list, enable, disable, reload}`
+- `client.agent.{list, getCurrent, select, deselect, reload}`
+- `client.history.{compact, truncate}`
+- `client.usage.getMetrics`
+- `client.mcp.{list, enable, disable, reload}` (and nested `mcp.oauth.login`)
+
+If your CLI version doesn't recognize an experimental method, the
+wrapper throws `CopilotExperimentalUnavailableError` with the namespace
+and method names — caller code can branch on this to provide graceful
+fallbacks.
+
+Stable namespaces (`plan`, `shell`, `workspaces`, `name`, `instructions`)
+are pure passthroughs and follow the SDK's stable contract.
+
+See [`docs/provider-capabilities.md`](docs/provider-capabilities.md) for the full method list.
+
 ## Versioning
 
 This package uses independent semver releases.

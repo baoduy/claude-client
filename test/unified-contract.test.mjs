@@ -52,6 +52,7 @@ const optionalMethods = [
   'setPermissionMode',
   'setMaxThinkingTokens',
   'listSupportedModels',
+  'getMessages',
 ];
 
 test('factory-produced Claude client exposes the AICliClient surface', async () => {
@@ -123,12 +124,19 @@ test('Claude optional method presence matches capabilities (all true)', async ()
   });
 });
 
-test('Copilot optional method presence matches capabilities (all false)', async () => {
+test('Copilot optional method presence matches capabilities', async () => {
   await withCopilotStartStub(async () => {
     const client = await createAICliClient({ provider: 'copilot', cwd: '/tmp' });
+    // Methods Copilot now implements (track Group E gap-fill progress).
+    const presentMethods = new Set(['setModel', 'setPermissionMode', 'listSupportedModels', 'getMessages']); // A5 + A6 + A9 + B7
     for (const m of optionalMethods) {
-      assert.equal(client.capabilities[m], false, `Copilot.capabilities.${m} should be false`);
-      assert.equal(client[m], undefined, `Copilot.${m} should be undefined`);
+      if (presentMethods.has(m)) {
+        assert.equal(client.capabilities[m], true, `Copilot.capabilities.${m} should be true`);
+        assert.equal(typeof client[m], 'function', `Copilot.${m} should be a method`);
+      } else {
+        assert.equal(client.capabilities[m], false, `Copilot.capabilities.${m} should be false`);
+        assert.equal(client[m], undefined, `Copilot.${m} should be undefined`);
+      }
     }
   });
 });
