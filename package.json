@@ -44,6 +44,11 @@
       "import": "./dist/esm/copilot/index.js",
       "require": "./dist/cjs/copilot/index.js"
     },
+    "./copilot/namespaces": {
+      "types": "./dist/types/copilot/namespaces/index.d.ts",
+      "import": "./dist/esm/copilot/namespaces/index.js",
+      "require": "./dist/cjs/copilot/namespaces/index.js"
+    },
     "./pty": {
       "types": "./dist/types/pty/index.d.ts",
       "import": "./dist/esm/pty/index.js",
