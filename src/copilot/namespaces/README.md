@@ -48,7 +48,10 @@ This is also the only namespace that has a Claude analogue, but in a different s
 These classes are accessed through the parent client; you never `new` them directly:
 
 ```ts
-import { CopilotClient } from '@baoduy2412/ai-cli-client';
+import {
+  CopilotClient,
+  CopilotExperimentalUnavailableError,
+} from '@baoduy2412/ai-cli-client';
 
 const client = new CopilotClient({ cwd: process.cwd() });
 await client.start();
@@ -58,7 +61,6 @@ const plan = await client.plan.list();
 await client.workspaces.readFile({ path: 'package.json' });
 
 // Experimental namespaces — handle the unavailable case.
-import { CopilotExperimentalUnavailableError } from '@baoduy2412/ai-cli-client';
 try {
   const usage = await client.usage.get();
   console.log(usage);
@@ -78,7 +80,7 @@ await client.mcp.oauth.login({ name: 'my-server' });
 ## Internal files
 
 - `_resolver.ts` — `makeSessionResolver`, `callRpc`, `SessionGetter`. Shared by every wrapper; not exported.
-- One file per namespace: `plan.ts`, `skills.ts`, `agent.ts`, `history.ts`, `usage.ts`, `shell.ts`, `workspaces.ts`, `name.ts`, `instructions.ts`, `mcp.ts`. Each contains exactly one exported class (plus `mcp.ts` which has two — the main `CopilotMcpApi` and the nested `CopilotMcpOauthApi`).
+- One file per namespace: `plan.ts`, `skills.ts`, `agent.ts`, `history.ts`, `usage.ts`, `shell.ts`, `workspaces.ts`, `name.ts`, `instructions.ts`, `mcp.ts`. Each contains exactly one exported class (plus `mcp.ts` which has two — the main `CopilotMcpApi` and the nested `CopilotMcpOauthApi`). Note: `CopilotMcpOauthApi` is not barrel-exported; it is reachable only as the `.oauth` property of a `CopilotMcpApi` instance (i.e. `client.mcp.oauth`).
 - `index.ts` — barrel.
 
 ## See also

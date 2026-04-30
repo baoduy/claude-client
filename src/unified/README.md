@@ -80,5 +80,5 @@ function canSendImages(caps: AICliCapabilities): boolean {
 ## See also
 
 - Root [`README.md`](../../README.md) — package overview and full event semantics.
-- [`../ai-cli-client.ts`](../ai-cli-client.ts) — the `AICliClient` interface that consumes these types.
+- [`docs/superpowers/specs/2026-04-29-unified-surface-expansion-design.md`](../../docs/superpowers/specs/2026-04-29-unified-surface-expansion-design.md) — design behind the unified types and capabilities.
 - [`docs/provider-capabilities.md`](../../docs/provider-capabilities.md) — full divergence matrix between providers.

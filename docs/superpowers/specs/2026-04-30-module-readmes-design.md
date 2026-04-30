@@ -126,7 +126,7 @@ This ordering lets later READMEs link to earlier ones without forward references
 - Public exports tables match the corresponding `index.ts` barrels at the time of writing.
 - No README contains a full type signature for any method that already has TSDoc in source.
 - All cross-references resolve (relative paths to existing files).
-- Files are committed in a single commit with message `docs(modules): add per-module READMEs`.
+- Files are committed in atomic commits — one per README — with messages of the form `docs(<module>): add module README`.
 
 ## Open questions
 
