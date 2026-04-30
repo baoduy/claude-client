@@ -41,11 +41,37 @@ for TypeScript optional chaining.
 | Method                  | Claude | Copilot | `capabilities.<flag>` |
 | ----------------------- | :----: | :-----: | --------------------- |
 | `setModel`              |   ✅   |   ✅    | `setModel`            |
-| `setPermissionMode`     |   ✅   |   ❌    | `setPermissionMode`   |
+| `setPermissionMode`     |   ✅   |   ✅    | `setPermissionMode` — both providers; vocab: `'prompt' \| 'auto-edit' \| 'auto-all' \| 'plan' \| 'autopilot'`. `'autopilot'` is Copilot-only. Legacy `'default' \| 'acceptEdits' \| 'auto' \| 'bypassPermissions' \| 'dontAsk'` accepted via `LegacyPermissionMode` alias (deprecated; removed in 2.0.0). |
 | `setMaxThinkingTokens`  |   ✅   |   ❌    | `setMaxThinkingTokens`|
 | `listSupportedModels`   |   ✅   |   ✅    | `listSupportedModels` |
 | `getMessages`           |   ✅   |   ✅    | `getMessages` — projects to `UnifiedMessage[]`; preserves the full provider event under `.raw.event` |
+| `getOpenRequests`       |   ✅   |   ✅    | `interactiveApproval` — returns `PendingRequest[]` (discriminated union of permission/elicitation/question variants) |
+| `approveRequest`        |   ✅   |   ✅    | `interactiveApproval` — accepts `ApproveDecision`. Copilot's `'session'`/`'location'` scopes degrade to `'once'` for unknown request kinds (logged via `console.warn`). |
+| `denyRequest`           |   ✅   |   ✅    | `interactiveApproval` |
+| `answerQuestion`        |   ✅   |   ✅    | `interactiveApproval` — accepts `QuestionResponse` |
+| `getPendingAction`      |   ✅   |   ✅    | `interactiveApproval` — returns `{id, kind}` reference |
+| `interruptTurn`         |   ✅   |   ✅    | `interruptTurnGranularity` — Claude `'per-turn'` (turnId honored); Copilot `'session-only'` (turnId ignored) |
+| `getDetailedStatus`     |   ✅   |   ✅    | `detailedStatus` — provider-aware unified `DetailedStatus` |
 | Rich `SendInput`        | partial | full   | `richContent` — `'none' \| 'partial' \| 'full'`. Claude accepts text + image; Copilot accepts text + image (base64) + file_path + directory_path + selection (mapped to SDK attachments). |
+
+### Permission mode vocabulary
+
+The unified `PermissionMode` type used by `setPermissionMode` and exposed via
+`capabilities.permissionModes`:
+
+| Mode         | Claude maps to        | Copilot maps to                              |
+| ------------ | --------------------- | -------------------------------------------- |
+| `prompt`     | `default`             | `mode.set('interactive')` + `setApproveAll(false)` |
+| `auto-edit`  | `acceptEdits`         | `mode.set('interactive')` + queue auto-approves write-kind permissions |
+| `auto-all`   | `bypassPermissions`   | `mode.set('interactive')` + `setApproveAll(true)` |
+| `plan`       | `plan`                | `mode.set('plan')`                           |
+| `autopilot`  | (throws — Copilot-only) | `mode.set('autopilot')`                    |
+
+The legacy vocab (`'default' | 'acceptEdits' | 'auto' | 'bypassPermissions' | 'dontAsk' | 'plan'`) is accepted at runtime via the `LegacyPermissionMode` type alias and translated to the new vocab. The alias is **deprecated** and will be removed in 2.0.0. Migration:
+
+```
+sed -i.bak "s/'default'/'prompt'/g; s/'acceptEdits'/'auto-edit'/g; s/'bypassPermissions'/'auto-all'/g" <files>
+```
 
 ## Provider-specific (concrete class only)
 
@@ -54,21 +80,20 @@ Reach via the `provider` discriminant — `if (client.provider === 'claude') { .
 | Member                     | Claude | Copilot | Notes |
 | -------------------------- | :----: | :-----: | ----- |
 | `kill`                     |   ✅   |   ❌    | Claude-specific synchronous terminate |
-| `getOpenRequests`          |   ✅   |   ❌    | interactive permission flow (Group D — deferred) |
-| `approveRequest`           |   ✅   |   ❌    | same |
-| `denyRequest`              |   ✅   |   ❌    | same |
-| `answerQuestion`           |   ✅   |   ❌    | Claude interactive question flow |
-| `createQuestionSession`    |   ✅   |   ❌    | same |
-| `getDetailedStatus`        |   ✅   |   ❌    | full 4-state Claude status (`'idle' \| 'running' \| 'input_needed' \| 'error'`) |
+| `createQuestionSession`    |   ✅   |   ❌    | Claude interactive question flow |
+| `getOpenRequestsDetailed`  |   ✅   |   ❌    | rich Claude `OpenRequest[]` (preserved); the unified `getOpenRequests()` is the projection |
+| `approveRequestDetailed`   |   ✅   |   ❌    | accepts Claude's full `{message, updatedInput, updatedPermissions, scope, always}` decision shape |
+| `denyRequestDetailed`      |   ✅   |   ❌    | rich Claude deny |
+| `answerQuestionDetailed`   |   ✅   |   ❌    | accepts Claude's `QuestionAnswerInput` (`Record<string, QuestionAnswerValue>`) |
+| `getPendingActionDetailed` |   ✅   |   ❌    | rich Claude `PendingAction` shape |
+| `getClaudeStatus`          |   ✅   |   ❌    | Claude's 4-state `'idle' \| 'running' \| 'input_needed' \| 'error'` (was `getDetailedStatus`) |
 | `getCurrentTurnDetailed`   |   ✅   |   ❌    | rich `ClaudeTurnSnapshot` (with `thinking`, `currentMessage`, `metadata`, etc.) |
 | `getHistoryDetailed`       |   ✅   |   ❌    | rich `ClaudeTurnSnapshot[]` |
 | `getCurrentTurnHandle`     |   ❌   |   ✅    | live `CopilotTurnHandle` instance |
-| `getPendingAction`         |   ✅   |   ❌    | Claude `PendingAction` (interactive permissions) |
 | `sendControlRequest`       |   ✅   |   ❌    | Claude wire-protocol primitive (Group F — deferred) |
 | `sendMcpMessage`           |   ✅   |   ❌    | same |
 | `sendMcpControlResponse`   |   ✅   |   ❌    | same |
 | `sendMessageWithContent`   |   ✅   |   ❌    | superseded by unified `send(input: SendInput)` |
-| `interruptTurn(turnId?)`   |   ✅   |   ❌    | Claude per-turn interrupt |
 
 ## Snapshot shapes
 
@@ -115,6 +140,9 @@ All 12 events in `UnifiedEventMap` are available on both providers via
 | `result`           |   ✅   |   ✅    | `(snapshot: TurnSnapshot)` |
 | `error`            |   ✅   |   ✅    | `(err: Error)` |
 | `closed`           |   ✅   |   ✅    | `(exitCode: number \| null)` — terminal; no events fire after this |
+| `pending_request_added`    | ✅ | ✅ | `({ id: string; kind: 'permission' \| 'elicitation' \| 'question' })` |
+| `pending_request_removed`  | ✅ | ✅ | `({ id: string })` |
+| `pending_request_resolved` | ✅ | ✅ | `({ id: string; outcome: 'approved' \| 'denied' \| 'answered' \| 'cancelled' })` |
 
 ### Claude-only
 
@@ -167,11 +195,6 @@ Anything not mapped above is reachable via `extraArgs`. See
 
 ## Deferred
 
-- **Group D** (interactive approval unification) — `getOpenRequests`,
-  `approveRequest`, `denyRequest`, `answerQuestion`,
-  `createQuestionSession` remain on `ClaudeClient` only. Lifting these
-  onto the unified surface requires Copilot SDK support; revisit when
-  `@github/copilot-sdk` exposes interactive approval primitives.
 - **Group F** (low-level escape hatches) — `sendControlRequest`,
   `sendMcpMessage`, `sendMcpControlResponse` are pure Claude
   wire-protocol primitives; consumers needing them narrow via
